@@ -1,0 +1,34 @@
+[project]
+name = "finsafe-deerflow-adapter"
+version = "0.1.0"
+description = "FinSAFE SaaS sandbox provider for DeerFlow (plugin via sandbox.use)"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "deerflow-harness>=2.1,<3",
+    "httpx>=0.28.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["finsafe_deerflow_adapter"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: tests that require a running finsafe-saas sidecar",
+]
+
+# deerflow-harness resolves from PyPI (see dependencies). For local development
+# against an unreleased harness, add a personal override in uv.toml or install
+# the sibling checkout editable:
+#   uv pip install -e ../deer-flow/backend/packages/harness

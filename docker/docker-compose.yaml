@@ -1,0 +1,32 @@
+# Standalone FinSAFE SaaS daemon (no DeerFlow required).
+#
+#   cd docker
+#   docker compose up -d
+#   curl -H "Authorization: Bearer dev-change-me" http://127.0.0.1:18080/v1/executions/does-not-exist
+#   # 404 => daemon is up
+#
+# To change the token, edit auth.bearer_token in finsafe-daemon.yaml and use the
+# same value in DeerFlow's sandbox.token / FINSAFE_TOKEN.
+#
+# Pin image:
+#   FINSAFE_SAAS_IMAGE=ghcr.io/geeksfino/finsafe-saas:v0.9.16
+
+services:
+  finsafe-saas:
+    image: ${FINSAFE_SAAS_IMAGE:-ghcr.io/geeksfino/finsafe-saas:v0.9.16}
+    platform: ${FINSAFE_SAAS_PLATFORM:-linux/amd64}
+    pull_policy: ${FINSAFE_SAAS_PULL_POLICY:-always}
+    privileged: true
+    cgroup: host
+    command: ["--config", "/etc/finsafe/daemon.yaml"]
+    environment:
+      - FINSAFE_HELPER_ALLOWED_CGROUP_ROOT=/sys/fs/cgroup/finsafe.slice
+    ports:
+      - "18080:8080"
+    volumes:
+      - finsafe-runtime:/var/lib/finsafe
+      - ./finsafe-daemon.yaml:/etc/finsafe/daemon.yaml:ro
+    restart: unless-stopped
+
+volumes:
+  finsafe-runtime:

@@ -1,0 +1,28 @@
+# FinSAFE SaaS daemon — standalone sidecar for DeerFlow (or any HTTP client).
+# Token must match FINSAFE_TOKEN env and sandbox.token in DeerFlow config.yaml.
+
+schema_version: 1
+
+server:
+  bind: "0.0.0.0:8080"
+
+auth:
+  bearer_token: "dev-change-me"
+  user_id: "app-user"
+  tenant_id: "acme"
+
+storage:
+  runtime_root: "/var/lib/finsafe"
+
+executor:
+  finsafe_cli: "/usr/local/bin/finsafe"
+  mock_cells: false
+
+sessions:
+  reaper_interval_secs: 60
+
+resident: {}
+
+host_profiles:
+  linux-desktop-isolated:
+    memory_max: "8G"
