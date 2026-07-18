@@ -1,6 +1,6 @@
 [project]
 name = "finsafe-deerflow-provider"
-version = "0.2.0"
+version = "0.2.1"
 description = "FinSAFE SaaS sandbox provider for DeerFlow (plugin via sandbox.use)"
 readme = "README.md"
 requires-python = ">=3.12"

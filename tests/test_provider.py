@@ -51,6 +51,83 @@ def test_reject_path_traversal() -> None:
         sb._resolve_path("/mnt/user-data/../etc/passwd")
 
 
+def test_rewrite_command_paths_maps_virtual_roots() -> None:
+    sb = _sandbox()
+    ws = "/var/lib/finsafe/sessions/sess-1"
+    assert (
+        sb._rewrite_command_paths("cat /mnt/user-data/workspace/a.txt")
+        == f"cat {ws}/mnt/user-data/workspace/a.txt"
+    )
+    assert (
+        sb._rewrite_command_paths("cd /mnt/user-data/workspace; ls")
+        == f"cd {ws}/mnt/user-data/workspace; ls"
+    )
+    assert (
+        sb._rewrite_command_paths("cat /mnt/skills/public/x/SKILL.md")
+        == f"cat {ws}/mnt/skills/public/x/SKILL.md"
+    )
+    assert (
+        sb._rewrite_command_paths("ls /mnt/acp-workspace")
+        == f"ls {ws}/mnt/acp-workspace"
+    )
+
+
+def test_rewrite_command_paths_ignores_sibling_prefix() -> None:
+    sb = _sandbox()
+    # A path that merely shares the virtual prefix must not be rewritten.
+    cmd = "cat /mnt/user-data-backup/secret"
+    assert sb._rewrite_command_paths(cmd) == cmd
+
+
+def test_rewrite_command_paths_leaves_relative_paths() -> None:
+    sb = _sandbox()
+    cmd = "cat mnt/user-data/workspace/a.txt"
+    assert sb._rewrite_command_paths(cmd) == cmd
+
+
+def test_mask_output_paths_reverses_rewrite() -> None:
+    sb = _sandbox()
+    ws = "/var/lib/finsafe/sessions/sess-1"
+    assert (
+        sb._mask_output_paths(f"{ws}/mnt/user-data/workspace/a.txt")
+        == "/mnt/user-data/workspace/a.txt"
+    )
+    # Bare workspace root (pwd) maps to the default workspace virtual path.
+    assert sb._mask_output_paths(ws) == "/mnt/user-data/workspace"
+
+
+def test_execute_command_rewrites_and_masks() -> None:
+    from unittest.mock import MagicMock
+
+    client = MagicMock()
+    client.new_execution_ids.return_value = ("exec-1", "req-1")
+    client.submit_session_execution.return_value = {
+        "admission": {"admitted": True, "execution_id": "exec-1"}
+    }
+    client.wait_execution.return_value = {"status": "succeeded"}
+    ws = "/var/lib/finsafe/sessions/sess-1"
+    downloads: list[bytes] = [
+        b"BOOTSTRAP_OK\n",
+        b"0\n",
+        f"{ws}/mnt/user-data/workspace\n".encode(),
+        b"0\n",
+    ]
+    client.download_session_file.side_effect = lambda *_: downloads.pop(0)
+
+    sb = _sandbox(client=client)
+    result = sb.execute_command("cat /mnt/user-data/workspace/a.txt")
+
+    # The command that reached the cell must use the cell-absolute path.
+    exec_call = client.submit_session_execution.call_args_list[-1]
+    wrapped_cmd = exec_call.args[1]["request"]["request"]["command"][-1]
+    assert f"{ws}/mnt/user-data/workspace/a.txt" in wrapped_cmd
+    assert "/mnt/user-data/workspace/a.txt" not in wrapped_cmd.replace(
+        f"{ws}/mnt/user-data/workspace/a.txt", ""
+    )
+    # Output must be masked back to the virtual path.
+    assert result.strip() == "/mnt/user-data/workspace"
+
+
 def test_build_execution_payload_uses_session_host_workdir() -> None:
     client = MagicMock()
     client.new_execution_ids.return_value = ("exec-1", "req-1")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import shlex
 import threading
 import uuid
@@ -11,6 +12,18 @@ from typing import TYPE_CHECKING, Any
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX
 from deerflow.sandbox.sandbox import Sandbox, _validate_extra_env
 from deerflow.sandbox.search import GrepMatch, path_matches, should_ignore_path, truncate_line
+
+# DeerFlow virtual roots that appear as absolute paths inside bash command
+# strings. The harness rewrites these for local sandboxes; a remote provider
+# must do the equivalent so commands, ``cd`` prefixes, and file-tool writes all
+# resolve to the same physical location inside the FinSAFE cell.
+_ACP_WORKSPACE_VIRTUAL_PREFIX = "/mnt/acp-workspace"
+_SKILLS_VIRTUAL_PREFIX = "/mnt/skills"
+_VIRTUAL_COMMAND_PREFIXES: tuple[str, ...] = (
+    VIRTUAL_PATH_PREFIX,
+    _ACP_WORKSPACE_VIRTUAL_PREFIX,
+    _SKILLS_VIRTUAL_PREFIX,
+)
 
 from .defaults import (
     DEFAULT_AGENT_ID,
@@ -82,6 +95,26 @@ class FinsafeSandbox(Sandbox):
         self._closed = False
         self._bootstrapped = False
 
+        # Precompute virtual-path rewrites for bash commands. The cell work_dir
+        # is ``workspace_path``; DeerFlow virtual roots live under it as
+        # ``{workspace_path}/mnt/...`` (bootstrap creates them). The negative
+        # lookahead mirrors the harness rewriter so a virtual root does not match
+        # a sibling that merely shares its prefix (``/mnt/user-data-backup``).
+        ws = self._workspace_path.rstrip("/")
+        self._cell_workspace_root = ws
+        self._command_path_rewrites: list[tuple[re.Pattern[str], str]] = [
+            (
+                re.compile(rf"{re.escape(prefix)}(?=/|$|[^\w./-])"),
+                f"{ws}/{prefix.lstrip('/')}",
+            )
+            for prefix in _VIRTUAL_COMMAND_PREFIXES
+        ]
+        # Reverse map (cell absolute path -> virtual path) so command output does
+        # not leak the host session directory back to the agent.
+        self._output_path_masks: list[tuple[str, str]] = [
+            (f"{ws}/{prefix.lstrip('/')}", prefix) for prefix in _VIRTUAL_COMMAND_PREFIXES
+        ]
+
     @property
     def session_id(self) -> str:
         return self._session_id
@@ -141,6 +174,29 @@ class FinsafeSandbox(Sandbox):
                 rel = rel[len(stem) :]
                 break
         return rel.lstrip("/")
+
+    def _rewrite_command_paths(self, command: str) -> str:
+        """Rewrite DeerFlow virtual roots to cell-absolute paths.
+
+        The harness prepends ``cd /mnt/user-data/workspace;`` for remote
+        providers and agents routinely pass absolute ``/mnt/user-data/...``
+        paths, but the cell only exposes those trees under ``work_dir``
+        (``{workspace_path}/mnt/...``). Rewriting keeps ``bash`` aligned with
+        ``read_file``/``write_file`` (which resolve to the same location).
+        """
+        result = command
+        for pattern, replacement in self._command_path_rewrites:
+            result = pattern.sub(lambda _m, repl=replacement: repl, result)
+        return result
+
+    def _mask_output_paths(self, output: str) -> str:
+        """Reverse of :meth:`_rewrite_command_paths` for command output."""
+        result = output
+        for cell_abs, virtual in self._output_path_masks:
+            result = result.replace(cell_abs, virtual)
+        # Bare session workspace root (e.g. ``pwd``) -> default workspace path.
+        result = result.replace(self._cell_workspace_root, f"{VIRTUAL_PATH_PREFIX}/workspace")
+        return result
 
     def _ensure_bootstrapped(self) -> None:
         if self._bootstrapped:
@@ -238,7 +294,9 @@ class FinsafeSandbox(Sandbox):
             return "Error: sandbox has been closed"
         effective_timeout = self._default_command_timeout if timeout is None else timeout
         try:
-            return self._run_shell(command, env=env, timeout=effective_timeout)
+            rewritten = self._rewrite_command_paths(command)
+            output = self._run_shell(rewritten, env=env, timeout=effective_timeout)
+            return self._mask_output_paths(output)
         except Exception as e:
             logger.error("FinSAFE execute_command failed for sandbox %s: %s", self.id, e)
             return f"Error: {e}"

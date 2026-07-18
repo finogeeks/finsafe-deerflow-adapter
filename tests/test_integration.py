@@ -121,3 +121,28 @@ def test_sensitive_read_denied(sandbox) -> None:
 def test_cell_toolbox_python(sandbox) -> None:
     output = sandbox.execute_command("python3 -c \"print(40 + 2)\"")
     assert "42" in output
+
+
+def test_write_file_then_bash_absolute_read(sandbox) -> None:
+    """write_file and bash must resolve /mnt/user-data to the same location."""
+    path = "/mnt/user-data/workspace/cross.txt"
+    sandbox.write_file(path, "CROSS_TOOL_OK\n")
+    # Agent-style absolute virtual path (harness passes these verbatim).
+    output = sandbox.execute_command(f"cat {path}")
+    assert "CROSS_TOOL_OK" in output
+    assert not output.startswith("Error:")
+
+
+def test_bash_absolute_write_then_read_file(sandbox) -> None:
+    path = "/mnt/user-data/workspace/from_bash.txt"
+    result = sandbox.execute_command(f"echo BASH_WROTE_IT > {path}")
+    assert not result.startswith("Error:")
+    assert sandbox.read_file(path) == "BASH_WROTE_IT\n"
+
+
+def test_bash_cd_absolute_workspace(sandbox) -> None:
+    """The harness prepends `cd /mnt/user-data/workspace;` for remote providers."""
+    output = sandbox.execute_command("cd /mnt/user-data/workspace && echo IN_WS && pwd")
+    assert "IN_WS" in output
+    # Output must not leak the host session directory.
+    assert "/var/lib/finsafe/sessions" not in output
