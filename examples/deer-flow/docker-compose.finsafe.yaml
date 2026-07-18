@@ -33,6 +33,8 @@ services:
     volumes:
       - finsafe-runtime:/var/lib/finsafe
       - ./finsafe-daemon.yaml:/etc/finsafe/daemon.yaml:ro
+    ports:
+      - "18080:8080"
     networks:
       - deer-flow
     restart: unless-stopped

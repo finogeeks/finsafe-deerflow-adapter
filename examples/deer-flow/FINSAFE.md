@@ -28,24 +28,23 @@ Also merge `config-sandbox-finsafe.yaml` into your project-root `config.yaml`.
    | `docker/finsafe-daemon.yaml` | `auth.bearer_token` |
    | shell / `.env` | `FINSAFE_TOKEN` (injected into gateway by overlay) |
 
-4. **Build gateway with FinSAFE extra**:
+4. **Build gateway with FinSAFE extra** (requires `git` in `backend/Dockerfile` builder — see INTEGRATION.md §6.3):
 
    ```bash
-   cd deer-flow/docker
-   export FINSAFE_TOKEN=dev-change-me
-   UV_EXTRAS=finsafe docker compose -p deer-flow \
-     -f docker-compose.yaml \
-     -f docker-compose.finsafe.yaml \
-     build gateway
+   cd deer-flow/backend && uv lock
+   cd ../docker
+   touch ../.env
+   export DEER_FLOW_HOME=../backend/.deer-flow DEER_FLOW_CONFIG_PATH=../config.yaml \
+     DEER_FLOW_EXTENSIONS_CONFIG_PATH=../extensions_config.json DEER_FLOW_REPO_ROOT=.. \
+     FINSAFE_TOKEN=dev-change-me UV_EXTRAS=finsafe
+   docker compose -p deer-flow -f docker-compose.yaml -f docker-compose.finsafe.yaml build gateway frontend
    ```
 
 5. **Start stack**:
 
    ```bash
-   docker compose -p deer-flow \
-     -f docker-compose.yaml \
-     -f docker-compose.finsafe.yaml \
-     up -d
+   docker compose -p deer-flow -f docker-compose.yaml -f docker-compose.finsafe.yaml \
+     up -d --no-build redis finsafe-saas gateway frontend nginx
    ```
 
 Browser entry: `http://localhost:2026` (or `$PORT`).

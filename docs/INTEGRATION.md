@@ -218,22 +218,65 @@ export FINSAFE_BASE_URL=http://127.0.0.1:18080 FINSAFE_TOKEN=dev-change-me
 
 2. 在 `config.yaml` 启用 FinSAFE sandbox（§4）。
 
-3. 构建并启动：
+3. 更新 lockfile（修改 `pyproject.toml` 后必须执行）：
+
+   ```bash
+   cd /path/to/deer-flow/backend && uv lock && uv sync --extra finsafe
+   ```
+
+4. 准备 Compose 环境：
+
+   ```bash
+   touch /path/to/deer-flow/.env    # frontend env_file 引用，可为空文件
+   mkdir -p /path/to/deer-flow/backend/.deer-flow
+   export DEER_FLOW_HOME=/path/to/deer-flow/backend/.deer-flow
+   export DEER_FLOW_CONFIG_PATH=/path/to/deer-flow/config.yaml
+   export DEER_FLOW_EXTENSIONS_CONFIG_PATH=/path/to/deer-flow/extensions_config.json
+   export DEER_FLOW_REPO_ROOT=/path/to/deer-flow
+   export FINSAFE_TOKEN=dev-change-me
+   export UV_EXTRAS=finsafe
+   ```
+
+5. 构建并启动（**见 §6.3 Docker 构建前提**）：
 
    ```bash
    cd /path/to/deer-flow/docker
-   export FINSAFE_TOKEN=dev-change-me   # 生产请轮换
-   UV_EXTRAS=finsafe docker compose -p deer-flow \
-     -f docker-compose.yaml \
-     -f docker-compose.finsafe.yaml \
-     build gateway
    docker compose -p deer-flow \
      -f docker-compose.yaml \
      -f docker-compose.finsafe.yaml \
-     up -d
+     build gateway frontend
+   docker compose -p deer-flow \
+     -f docker-compose.yaml \
+     -f docker-compose.finsafe.yaml \
+     up -d --no-build redis finsafe-saas gateway frontend nginx
    ```
 
+   overlay 已将 sidecar 映射到宿主机 **`18080:8080`**，便于从本机跑 `scripts/smoke.sh`。
+
 详细接线见 [examples/deer-flow/FINSAFE.md](../examples/deer-flow/FINSAFE.md)。
+
+### 6.3 Docker 构建前提（`UV_EXTRAS=finsafe`）
+
+`finsafe-deerflow-provider` 从 GitHub git 安装。DeerFlow 官方 `backend/Dockerfile` **builder 阶段默认不含 `git`**，直接 `docker compose build gateway` 会报错：
+
+```text
+Git executable not found. Ensure that Git is installed and available.
+```
+
+**临时修复**（在 `deer-flow/backend/Dockerfile` builder 的 `apt-get install` 中加入 `git`）：
+
+```dockerfile
+RUN apt-get update && apt-get install -y \
+    curl \
+    build-essential \
+    git \
+    gnupg \
+    ...
+```
+
+重新 build gateway 即可。长期建议向 DeerFlow upstream 提交 PR，或在 CI 中预构建含 provider 的 gateway 镜像。
+
+**Apple Silicon 注意：** `finsafe-saas` 默认 `platform: linux/amd64`（bubblewrap 依赖 x86_镜像）。集成测试在 arm64 Mac 上可通过 QEMU 跑通，但性能较慢；生产 Linux amd64 宿主机为推荐环境。
 
 ---
 
@@ -288,6 +331,18 @@ docker logs deer-flow-finsafe-saas 2>&1 | grep -E 'mock='
 ---
 
 ## 9. 常见问题
+
+### Docker build：`Git executable not found`
+
+见 §6.3 — 在 `backend/Dockerfile` builder 安装 `git`。
+
+### `env file .env not found`
+
+Compose 引用 `../.env`，创建空文件即可：`touch .env`。
+
+### Gateway 启动报 `IndexError: list index out of range`（models）
+
+Fresh `config.yaml` 未配置 LLM API key。运行 `make setup` 配置模型；**不影响 FinSAFE sandbox 集成测试**（provider smoke 不依赖 gateway 对话）。
 
 ### `uv sync --extra finsafe` 报 deerflow-harness 来源冲突
 
