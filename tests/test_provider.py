@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from _helpers import make_mock_sandbox_config as _mock_sandbox_config
-from finsafe_deerflow_adapter.defaults import (
+from finsafe_deerflow_provider.defaults import (
     DEFAULT_CPU_MAX,
     DEFAULT_FILESYSTEM_READ_ONLY_PATHS,
     DEFAULT_FILESYSTEM_READ_WRITE_PATHS,
@@ -14,8 +14,8 @@ from finsafe_deerflow_adapter.defaults import (
     DEFAULT_NETWORK_MODE,
     DEFAULT_PIDS_MAX,
 )
-from finsafe_deerflow_adapter.provider import FinsafeSandboxProvider
-from finsafe_deerflow_adapter.sandbox import FinsafeSandbox
+from finsafe_deerflow_provider.provider import FinsafeSandboxProvider
+from finsafe_deerflow_provider.sandbox import FinsafeSandbox
 
 
 def _sandbox(**kwargs) -> FinsafeSandbox:
@@ -94,7 +94,7 @@ def test_execute_command_bootstraps_without_deadlock() -> None:
     assert client.submit_session_execution.call_count == 2
 
 
-@patch("finsafe_deerflow_adapter.provider.get_app_config")
+@patch("finsafe_deerflow_provider.provider.get_app_config")
 def test_provider_loads_env_token(mock_get_config) -> None:
     mock_get_config.return_value = _mock_sandbox_config()
 
@@ -105,7 +105,7 @@ def test_provider_loads_env_token(mock_get_config) -> None:
     provider.shutdown()
 
 
-@patch("finsafe_deerflow_adapter.provider.get_app_config")
+@patch("finsafe_deerflow_provider.provider.get_app_config")
 def test_policy_factory_default_shape(mock_get_config) -> None:
     mock_get_config.return_value = _mock_sandbox_config()
 
@@ -126,7 +126,7 @@ def test_policy_factory_default_shape(mock_get_config) -> None:
     assert policy["filesystem"]["read_write_paths"] == list(DEFAULT_FILESYSTEM_READ_WRITE_PATHS)
 
 
-@patch("finsafe_deerflow_adapter.provider.get_app_config")
+@patch("finsafe_deerflow_provider.provider.get_app_config")
 def test_provider_reset_deletes_sessions(mock_get_config) -> None:
     mock_get_config.return_value = _mock_sandbox_config()
 
@@ -152,7 +152,7 @@ def test_provider_reset_deletes_sessions(mock_get_config) -> None:
         provider.shutdown()
 
 
-@patch("finsafe_deerflow_adapter.provider.get_app_config")
+@patch("finsafe_deerflow_provider.provider.get_app_config")
 def test_execute_command_uses_default_timeout(mock_get_config) -> None:
     mock_get_config.return_value = _mock_sandbox_config()
 
@@ -180,7 +180,7 @@ def test_execute_command_uses_default_timeout(mock_get_config) -> None:
         provider.shutdown()
 
 
-@patch("finsafe_deerflow_adapter.provider.get_app_config")
+@patch("finsafe_deerflow_provider.provider.get_app_config")
 def test_policy_factory_reads_filesystem_from_config(mock_get_config) -> None:
     mock_get_config.return_value = _mock_sandbox_config(
         filesystem_read_only_paths=["/usr", "/bin"],

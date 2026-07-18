@@ -1,8 +1,8 @@
-# finsafe-deerflow-adapter
+# finsafe-deerflow-provider
 
 FinSAFE SaaS sandbox provider for [DeerFlow](https://github.com/bytedance/deer-flow).
 
-Repository: `https://github.com/finogeeks/finsafe-deerflow-adapter`
+Repository: `https://github.com/finogeeks/finsafe-deerflow-provider`
 
 DeerFlow loads sandbox backends via `config.yaml` → `sandbox.use`. This package
 implements `FinsafeSandboxProvider` so agent tools run in FinSAFE-isolated cells.
@@ -14,7 +14,7 @@ implements `FinsafeSandboxProvider` so agent tools run in FinSAFE-isolated cells
 ```
 FinSAFE daemon (ghcr.io/geeksfino/finsafe-saas)   ← docker/ in this repo
         ↑ HTTP
-finsafe-deerflow-adapter (this package)
+finsafe-deerflow-provider (this package)
         ↑ sandbox.use
 DeerFlow gateway
 ```
@@ -26,24 +26,24 @@ package declares it as a git dependency on `bytedance/deer-flow` (subdirectory
 `backend/packages/harness`), so one `pip install` pulls both.
 
 ```bash
-pip install "git+https://github.com/finogeeks/finsafe-deerflow-adapter.git@v0.1.2"
+pip install "git+https://github.com/finogeeks/finsafe-deerflow-provider.git@v0.2.0"
 ```
 
 Into the DeerFlow gateway environment (uv):
 
 ```bash
 cd deer-flow/backend
-uv add "git+https://github.com/finogeeks/finsafe-deerflow-adapter.git@v0.1.2"
+uv add "git+https://github.com/finogeeks/finsafe-deerflow-provider.git@v0.2.0"
 ```
 
 Or declare it in `deer-flow/backend/pyproject.toml` so `uv sync --extra finsafe` works:
 
 ```toml
 [project.optional-dependencies]
-finsafe = ["finsafe-deerflow-adapter"]
+finsafe = ["finsafe-deerflow-provider"]
 
 [tool.uv.sources]
-finsafe-deerflow-adapter = { git = "https://github.com/finogeeks/finsafe-deerflow-adapter", tag = "v0.1.2" }
+finsafe-deerflow-provider = { git = "https://github.com/finogeeks/finsafe-deerflow-provider", tag = "v0.2.0" }
 ```
 
 Then `cd deer-flow/backend && uv sync --extra finsafe`.
@@ -51,7 +51,7 @@ Then `cd deer-flow/backend && uv sync --extra finsafe`.
 Docker: build the gateway image with `--build-arg UV_EXTRAS=finsafe` once the
 source above is declared.
 
-**Harness pin:** adapter `v0.1.2` pins `deerflow-harness` to commit
+**Harness pin:** provider `v0.2.0` pins `deerflow-harness` to commit
 `c9b6131f` on `bytedance/deer-flow` `main` (harness 2.1.0). Bump the git rev in
 `pyproject.toml` when validating against a newer DeerFlow release.
 
@@ -59,7 +59,7 @@ source above is declared.
 
 ```yaml
 sandbox:
-  use: finsafe_deerflow_adapter:FinsafeSandboxProvider
+  use: finsafe_deerflow_provider:FinsafeSandboxProvider
   base_url: $FINSAFE_BASE_URL
   token: $FINSAFE_TOKEN
   tenant_id: acme
@@ -99,7 +99,7 @@ chmod +x scripts/*.sh
 ```
 
 `smoke.sh` uses `DEER_FLOW_BACKEND` (default `../deer-flow/backend`) to locate the
-uv environment. After `pip install` from GitHub, a venv with the adapter alone also works.
+uv environment. After `pip install` from GitHub, a venv with the provider alone also works.
 
 ## Documentation
 

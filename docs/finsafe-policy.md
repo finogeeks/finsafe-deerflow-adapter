@@ -38,7 +38,7 @@ Copy into `config.yaml` when enabling Option 5 in `config.example.yaml`:
 
 ```yaml
 sandbox:
-  use: finsafe_deerflow_adapter:FinsafeSandboxProvider
+  use: finsafe_deerflow_provider:FinsafeSandboxProvider
 
   # ── Sidecar connectivity (must match docker-compose.finsafe.yaml + daemon) ──
   base_url: $FINSAFE_BASE_URL          # http://finsafe-saas:8080 in compose

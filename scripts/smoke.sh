@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# FinSAFE adapter smoke: unit tests + optional live integration against sidecar.
+# FinSAFE provider smoke: unit tests + optional live integration against sidecar.
 #
 # Usage:
 #   ./scripts/smoke.sh              # unit + integration (sidecar must be up)
@@ -57,4 +57,4 @@ export FINSAFE_TOKEN="${FINSAFE_TOKEN:-dev-change-me}"
 echo "==> Live integration (provider → daemon → cell)"
 uv run pytest "${ROOT}/tests/test_integration.py" -m integration -v
 
-echo "==> FinSAFE adapter smoke passed"
+echo "==> FinSAFE provider smoke passed"

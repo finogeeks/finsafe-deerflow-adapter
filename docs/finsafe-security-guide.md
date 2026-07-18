@@ -104,7 +104,7 @@ docker logs deer-flow-finsafe-saas 2>&1 | grep -E 'mock='
 
 ```yaml
 sandbox:
-  use: finsafe_deerflow_adapter:FinsafeSandboxProvider
+  use: finsafe_deerflow_provider:FinsafeSandboxProvider
 
   # ── 连接与身份 ──
   base_url: $FINSAFE_BASE_URL
@@ -332,7 +332,7 @@ docker logs deer-flow-finsafe-saas 2>&1 | grep -E 'exec-|mock=|succeeded|failed'
 **单元测试（策略形状，无需 sidecar）：**
 
 ```bash
-cd finsafe-deerflow-adapter && ./scripts/smoke.sh --quick
+cd finsafe-deerflow-provider && ./scripts/smoke.sh --quick
 ```
 
 **改 `network_mode` 后验证 JSON 行为：**
@@ -389,7 +389,7 @@ Cell 内进程 **uid = 1000**（非 root）。
 
 ```yaml
 sandbox:
-  use: finsafe_deerflow_adapter:FinsafeSandboxProvider
+  use: finsafe_deerflow_provider:FinsafeSandboxProvider
   base_url: $FINSAFE_BASE_URL
   token: $FINSAFE_TOKEN
   tenant_id: acme

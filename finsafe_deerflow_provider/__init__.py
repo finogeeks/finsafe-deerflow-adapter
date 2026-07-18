@@ -3,7 +3,7 @@
 Install this package, then point DeerFlow at it::
 
     sandbox:
-      use: finsafe_deerflow_adapter:FinsafeSandboxProvider
+      use: finsafe_deerflow_provider:FinsafeSandboxProvider
       base_url: $FINSAFE_BASE_URL
       token: $FINSAFE_TOKEN
       tenant_id: acme

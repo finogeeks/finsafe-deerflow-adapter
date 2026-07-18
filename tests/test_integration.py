@@ -1,11 +1,11 @@
 """Live integration tests (requires a running finsafe-saas sidecar).
 
-Run from a DeerFlow backend venv with the adapter installed::
+Run from a DeerFlow backend venv with the provider installed::
 
     export FINSAFE_BASE_URL=http://127.0.0.1:18080
     export FINSAFE_TOKEN=dev-change-me
     cd deer-flow/backend && uv sync --extra finsafe
-    uv run pytest /path/to/finsafe-deerflow-adapter/tests/test_integration.py -m integration -v
+    uv run pytest /path/to/finsafe-deerflow-provider/tests/test_integration.py -m integration -v
 
 Or use ``scripts/smoke.sh`` from this repository.
 """
@@ -44,15 +44,15 @@ def require_finsafe_daemon():
     if not _daemon_reachable():
         pytest.skip(
             "FinSAFE daemon not reachable (set FINSAFE_BASE_URL + FINSAFE_TOKEN "
-            "and start docker compose in finsafe-deerflow-adapter/docker)"
+            "and start docker compose in finsafe-deerflow-provider/docker)"
         )
 
 
 @pytest.fixture
 def finsafe_provider(require_finsafe_daemon):
-    from finsafe_deerflow_adapter import FinsafeSandboxProvider
+    from finsafe_deerflow_provider import FinsafeSandboxProvider
 
-    with patch("finsafe_deerflow_adapter.provider.get_app_config", return_value=_mock_sandbox_config()):
+    with patch("finsafe_deerflow_provider.provider.get_app_config", return_value=_mock_sandbox_config()):
         provider = FinsafeSandboxProvider()
     yield provider
     provider.shutdown()

@@ -1,4 +1,4 @@
-"""Shared test helpers for adapter tests."""
+"""Shared test helpers for provider tests."""
 
 from __future__ import annotations
 
@@ -58,7 +58,7 @@ def make_mock_sandbox_config(**overrides):
     ``defaults.py``; pass overrides to exercise specific config values.
     """
     cfg = MagicMock()
-    cfg.sandbox.use = "finsafe_deerflow_adapter:FinsafeSandboxProvider"
+    cfg.sandbox.use = "finsafe_deerflow_provider:FinsafeSandboxProvider"
     for name in FINSAFE_SANDBOX_ATTRS:
         setattr(cfg.sandbox, name, None)
     for key, value in overrides.items():

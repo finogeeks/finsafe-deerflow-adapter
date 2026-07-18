@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import pytest
-from finsafe_deerflow_adapter.defaults import (
+from finsafe_deerflow_provider.defaults import (
     DEFAULT_FILESYSTEM_READ_ONLY_PATHS,
     DEFAULT_FILESYSTEM_READ_WRITE_PATHS,
 )
-from finsafe_deerflow_adapter.policy import (
+from finsafe_deerflow_provider.policy import (
     FinsafePolicyConfigError,
     build_bootstrap_script,
     build_high_level_policy,
