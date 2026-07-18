@@ -25,7 +25,7 @@
 | `sandbox.network_mode` 等 | 是 | 是 |
 | cell `filesystem` + `policy_extensions` | FinSAFE 支持 | **是**（`filesystem_*`、`policy_extensions`） |
 | `mock_cells` | daemon YAML | 是 |
-| 内置 deny-read | FinSAFE 编译器 | 自动合并；可用 `filesystem_skip_default_deny_read` 关闭 |
+| 内置 deny-read | FinSAFE 编译器 | 自动合并；本集成不再支持 `filesystem_skip_default_deny_read`（SaaS 路由会拒绝） |
 
 ### 1.1 工具路径与隔离边界（重要）
 
@@ -123,7 +123,7 @@ sandbox:
   host_profile: linux-desktop-isolated
   network_mode: deny         # 生产推荐；开发可临时 host（见 §4.2）
 
-  # ── 单 cell cgroup 限制（memparse：用 G/M，勿用 GiB）──
+  # ── 单 cell cgroup 限制（memparse：用 G/M，勿用 GiB；provider 大小写不敏感拒绝 KiB/MiB/GiB/TiB/PiB）──
   memory_max: "2G"
   pids_max: "512"
   cpu_max: "200000 100000"   # cgroup v2，约 2 核
@@ -134,7 +134,7 @@ sandbox:
   read_file_output_max_chars: 50000
   ls_output_max_chars: 20000
 
-  # ── 仅 allowlist 模式（需自建 egress-proxy，官方镜像不支持）──
+  # ── 仅 allowlist 模式（sidecar 需在 finsafe-daemon.yaml 启用 host_capabilities）──
   # network_mode: allowlist
   # network_allowlist:
   #   - "api.example.com:443"
@@ -144,8 +144,8 @@ sandbox:
 
 | 字段 | 默认值 | 说明 |
 |------|--------|------|
-| `network_mode` | `deny` | `deny` 禁止出网；`host` 共享 sidecar 网络（隔离最弱）；`allowlist` 需 egress-proxy |
-| `memory_max` | `2G` | 单 cell 内存上限 |
+| `network_mode` | `deny` | `deny` 禁止出网；`host` 共享 sidecar 网络（隔离最弱）；`allowlist` 需 sidecar `host_capabilities.allowlist_supported: true`；`proxy` 不支持（S1 executor，勿配 `network_proxy_profile`） |
+| `memory_max` | `2G` | 单 cell 内存上限；用 `G`/`M`/`MB`，勿用 `GiB`（provider 大小写不敏感拒绝 IEC 后缀） |
 | `pids_max` | `512` | 单 cell 进程数上限 |
 | `cpu_max` | `200000 100000` | 单 cell CPU 配额 |
 | `bash_command_timeout` | `600` | bash 前台最长秒数，并写入 cell `timeout_ms` |
@@ -167,7 +167,13 @@ resident: {}                   # 勿省略；使用默认 broker 池（max_broke
 host_profiles:
   linux-desktop-isolated:
     memory_max: "8G"           # 宿主机级内存预算（所有 cell 合计），≠ 单 cell 的 2G
+
+# 当 sandbox.network_mode 为 allowlist 时必须启用（短生命周期 execution，不含 resident broker）
+host_capabilities:
+  allowlist_supported: true
 ```
+
+`network.mode=proxy` 在 S1 executor 路径尚未支持，**不要**配置 `proxy_profiles`。
 
 可选（上游支持，当前 DeerFlow 示例未用）：
 
@@ -239,13 +245,13 @@ host_profiles:
 | `filesystem.read_only_paths` | `filesystem_read_only_paths` | `/usr`、`/bin`、… |
 | `filesystem.read_write_paths` | `filesystem_read_write_paths` | `[/dev/null]` |
 | `filesystem.deny_read_paths` | `filesystem_deny_read_paths` | `[]` |
-| `filesystem.deny_write_globs` | `filesystem_deny_write_globs` | `[]` |
-| `filesystem.skip_default_deny_read` | `filesystem_skip_default_deny_read` | `false` |
-| `syscalls` | `syscalls` | 省略 |
+| ~~`filesystem.deny_write_globs`~~ | `filesystem_deny_write_globs` | **已拒绝**（wrapper-YAML-only，见 §8） |
+| ~~`filesystem.skip_default_deny_read`~~ | `filesystem_skip_default_deny_read` | **已拒绝**（wrapper-YAML-only，见 §8） |
+| `syscalls` | `syscalls` | 省略；仅 `"default"` / `"no_network"` 字符串 |
 | `identity.use_user_namespace` | `identity_use_user_namespace` | 省略 |
-| `environment` / `l7_rules` / … | `policy_extensions` | `{}` |
+| `environment` / `l7_rules` / … | `policy_extensions` | `{}`（浅合并到 HighLevel policy） |
 | Session 工作区 rw | （自动） | finsafe-server 按 `work_dir` 注入 |
-| 内置 deny-read | （自动） | FinSAFE 编译器，除非 `filesystem_skip_default_deny_read: true` |
+| 内置 deny-read | （自动） | FinSAFE 编译器，deny 模式下始终合并，无法经此 provider 关闭 |
 
 **执行请求层**（`request` 段，同样在 `sandbox:` 下配置）：
 
@@ -269,7 +275,7 @@ host_profiles:
 }
 ```
 
-官方 `ghcr.io/geeksfino/finsafe-saas` **无 egress-proxy**，提交 allowlist 通常会 admission 失败（`policy_router_unavailable_capability`）。
+官方 `ghcr.io/geeksfino/finsafe-saas` **默认**未启用 allowlist（`host_capabilities` 缺省为 false），提交 allowlist 会 admission 失败（`policy_router_unavailable_capability`）。在 `docker/finsafe-daemon.yaml` 中设置 `host_capabilities.allowlist_supported: true` 并重启 `finsafe-saas` 后，sidecar 会为每次 execution 启动内嵌 `finsafe-net-proxy`（启动失败则 reject，fail-closed）。
 
 #### 3.3.3 为何默认 `filesystem` 这样配置
 
@@ -292,7 +298,7 @@ DeerFlow 提交的 `policy` 只是 **高阶意图**；finsafe-server 编译为 `
 DeerFlow policy JSON
     + inject_workspace_bind（session 目录 → rw bind + Landlock rw）
     + host_profile 模板（linux-desktop-isolated：bwrap 命名空间、uid 1000、seccomp 等）
-    + sandbox-defaults 内置 deny-read（除非上游 skip_default_deny_read）
+    + sandbox-defaults 内置 deny-read（deny 模式下始终合并；`filesystem_skip_default_deny_read` 已被本 provider 拒绝，无法关闭）
     → bubblewrap argv + Landlock 规则 + cgroup v2 scope
 ```
 
@@ -310,7 +316,7 @@ DeerFlow 还在 **虚拟路径层** 拦截 `..` 穿越（`FinsafeSandbox._guard_
 
 #### 3.3.5 高级 FinSAFE 字段（`policy_extensions`）
 
-上游 [HighLevelPolicyV1](https://github.com/finogeeks/finsafe) 中结构较复杂的字段，通过 **`policy_extensions`** 原样合并进每次 cell 的 `policy` JSON，例如：
+上游 [HighLevelPolicyV1](https://github.com/finogeeks/finsafe) 中结构较复杂的字段，通过 **`policy_extensions`** 合并进每次 cell 的 `policy` JSON，例如：
 
 ```yaml
 sandbox:
@@ -320,6 +326,8 @@ sandbox:
     approval:
       execution_mode: auto
 ```
+
+**合并语义为浅合并（一层）**：当扩展键与已构建字段（如 `network`）同为 dict 时，仅合并顶层键，嵌套 dict 整体替换而非递归合并；非 dict 扩展值直接覆盖原值。例如 `policy_extensions.network.l7_rules` 会与已构建的 `network` 顶层合并，但若扩展里写 `network: {mode: ...}`，则 `mode` 会被覆盖。
 
 常用扩展键：`environment`、`artifacts`、`approval`、`l7_rules`、`credential_map`、`threat_intel_feed`。
 
@@ -431,7 +439,7 @@ sandbox:
 | 更严网络 | `network_mode: deny` |
 | 更大内存 | 提高 `memory_max` 与 daemon `host_profiles.*.memory_max` |
 | 更长 shell | 提高 `bash_command_timeout` |
-| HTTPS 白名单出网 | 需 FinSAFE egress-proxy 镜像 + `allowlist`（官方 `finsafe-saas` 不支持） |
+| HTTPS 白名单出网 | `finsafe-daemon.yaml` 启用 `host_capabilities.allowlist_supported: true` + `network_mode: allowlist` |
 
 ---
 
@@ -696,13 +704,28 @@ docker logs deer-flow-finsafe-saas 2>&1 | grep -E 'mock=|exec-'
 | gateway 401 / 403 | token 或 tenant 不一致 | 对齐三处 token；登录用户 tenant 须匹配 |
 | bash 返回 127 | Landlock 基线或镜像缺工具 | 确认 `finsafe-saas` 版本 ≥ 集成验证版本；看 sidecar 日志 |
 | `mock=true` | `mock_cells: true` | 改 daemon YAML 为 `false` 并重启 |
-| `GiB` 相关 cgroup 错误 | 用了 `8GiB` | 改为 `8G` |
+| `GiB` 相关 cgroup 错误 | 用了 `8GiB`（大小写不敏感） | provider 已 fail-fast 拒绝（`memory_max does not accept IEC binary suffixes`）；改为 `8G` |
 | 集成测试网络失败但预期 deny | 配置了 `host` | 改 `deny` 或跳过网络用例 |
 | chat E2E 未覆盖 | 聊天全链路测试在 DeerFlow 侧维护 | 使用 `./scripts/smoke.sh` 验证 provider → cell |
 
 ---
 
-## 8. 生产上线检查清单
+## 8. 升级迁移说明（破坏性变更）
+
+从 `finsafe-deerflow-provider < 0.2.2` 升级到 `>= 0.2.2` 时，provider 在构建策略前会 fail-fast 拒绝下列"wrapper-YAML-only"配置。若你的 `config.yaml` 用了它们，按下方迁移：
+
+| 旧字段 | 现象 | 迁移 |
+|--------|------|------|
+| `sandbox.filesystem_skip_default_deny_read: true` | `FinsafePolicyConfigError: ... wrapper-YAML field` | 删除该行。FinSAFE 内置 deny-read 在 deny 模式下始终合并，无法经此 provider 关闭。 |
+| `sandbox.filesystem_deny_write_globs: [...]` | 同上 | 删除该行。`HighLevelPolicyV1` 无 write-glob 否决；要阻止写入敏感路径，请将其移出 `filesystem_read_write_paths`，或经 `policy_extensions` 自行扩展。 |
+| `sandbox.syscalls: {allow: [...]}` 等对象形式 | `syscalls must be one of: 'default', 'no_network'` | 改为字符串 `"default"` 或 `"no_network"`。 |
+| `sandbox.memory_max: "2GiB"`（含 `KiB/MiB/GiB/TiB/PiB`，大小写不敏感） | `memory_max does not accept IEC binary suffixes` | 改为 `"2G"` / `"512M"` / `"512MB"` / 纯字节数。`finsafe-scheduler` 接受 IEC 后缀，但 bwrap/cgroup 写入路径不接受，会导致 cell exit 3。 |
+
+allowlist 出网不再需要企业版 egress-proxy 镜像：在 `finsafe-daemon.yaml` 设置 `host_capabilities.allowlist_supported: true` 并重启 `finsafe-saas`，sidecar 会为每次 execution 启动内嵌 `finsafe-net-proxy`（启动失败则 reject，fail-closed）。
+
+---
+
+## 9. 生产上线检查清单
 
 - [ ] `network_mode: deny`
 - [ ] `mock_cells: false`，日志 `mock=false`
@@ -715,7 +738,7 @@ docker logs deer-flow-finsafe-saas 2>&1 | grep -E 'mock=|exec-'
 
 ---
 
-## 9. 相关文件索引
+## 10. 相关文件索引
 
 | 文件 | 作用 |
 |------|------|

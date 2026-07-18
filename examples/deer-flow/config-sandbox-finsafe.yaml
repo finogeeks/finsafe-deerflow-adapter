@@ -20,9 +20,13 @@ sandbox:
   # ── Cell posture ──
   policy_id: deerflow-sandbox
   host_profile: linux-desktop-isolated # bwrap + Landlock + cgroup
-  network_mode: deny                   # production: deny | dev-only: host | allowlist needs egress-proxy
+  network_mode: deny                   # production: deny | dev-only: host | allowlist needs daemon host_capabilities
 
-  # ── Per-cell cgroup limits (kernel memparse: "2G" not "2GiB") ──
+  # ── Per-cell cgroup limits (use "2G" not "2GiB" — the provider rejects
+  #    IEC binary suffixes KiB/MiB/GiB/TiB/PiB case-insensitively with
+  #    FinsafePolicyConfigError; the scheduler accepts them but the cell
+  #    launch path does not, so a "2GiB" value would admit then exit with
+  #    code 3. Use "2G" / "512M" / "512MB" / plain bytes) ──
   memory_max: "2G"
   pids_max: "512"
   cpu_max: "200000 100000"             # ~2 CPUs on cgroup v2
@@ -52,14 +56,16 @@ sandbox:
   # filesystem_read_write_paths:
   #   - /dev/null
   # filesystem_deny_read_paths: []
-  # filesystem_deny_write_globs: []
-  # filesystem_skip_default_deny_read: false   # true disables FinSAFE built-in deny-read
+  # NOTE: filesystem_deny_write_globs and filesystem_skip_default_deny_read are
+  #   wrapper-YAML-only fields and are REJECTED by the SaaS HighLevelPolicyV1
+  #   router (bad_request_unknown_field). The built-in deny-read is always
+  #   merged in deny mode and cannot be disabled via this provider.
 
-  # ── Network advanced (allowlist/proxy require non-stock finsafe-saas) ──
+  # ── Network advanced (allowlist needs host_capabilities in finsafe-daemon.yaml) ──
   # network_mode: allowlist
   # network_allowlist:
   #   - "api.example.com:443"
-  # network_proxy_profile: my-profile
+  # network_proxy_profile: my-profile   # network.mode=proxy not supported by S1 executor
   # network_tls_terminate: false
   # network_start_internal_proxy: false
 

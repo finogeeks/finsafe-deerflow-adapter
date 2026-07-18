@@ -47,6 +47,32 @@ from .sandbox import FinsafeSandbox
 logger = logging.getLogger(__name__)
 
 
+# Filesystem knobs that exist on the wrapper YAML `FilesystemIntentV1` but
+# are rejected by the SaaS `HighLevelPolicyV1` router. The provider still
+# reads them (so config.yaml does not error on parse), but `build_high_level_policy`
+# refuses to emit them; surface a warning here so operators notice the no-op.
+_WRAPPER_ONLY_FILESYSTEM_FIELDS = (
+    "filesystem_skip_default_deny_read",
+    "filesystem_deny_write_globs",
+)
+
+
+def _warn_wrapper_only_filesystem_fields(cfg: dict[str, Any]) -> None:
+    for name in _WRAPPER_ONLY_FILESYSTEM_FIELDS:
+        value = cfg.get(name)
+        if name == "filesystem_deny_write_globs":
+            if not list(value or []):
+                continue
+        elif value is None:
+            continue
+        logger.warning(
+            "FinsafeSandboxProvider: %s is set in sandbox config but is a "
+            "wrapper-YAML-only field rejected by the SaaS HighLevelPolicyV1 "
+            "router; it will be ignored at policy build time",
+            name,
+        )
+
+
 class FinsafeSandboxProvider(SandboxProvider):
     """Sandbox provider backed by finsafe-server-http Phase X workspace sessions."""
 
@@ -85,7 +111,7 @@ class FinsafeSandboxProvider(SandboxProvider):
                 "(set sandbox.token in config.yaml or FINSAFE_TOKEN env var)"
             )
 
-        return {
+        cfg = {
             "base_url": str(base_url).rstrip("/"),
             "token": token or "",
             "tenant_id": _opt("tenant_id") or DEFAULT_TENANT_ID,
@@ -134,6 +160,9 @@ class FinsafeSandboxProvider(SandboxProvider):
                 _opt("bash_command_timeout") or DEFAULT_BASH_COMMAND_TIMEOUT_SECONDS
             ),
         }
+
+        _warn_wrapper_only_filesystem_fields(cfg)
+        return cfg
 
     def _policy_factory(self, *, timeout_ms: int | None = None) -> Callable[..., dict[str, Any]]:
         cfg = self._config

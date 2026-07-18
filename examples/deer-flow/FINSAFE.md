@@ -80,7 +80,7 @@ DEER_FLOW_BACKEND=/path/to/deer-flow/backend ./scripts/smoke.sh
 | Changed | Restart |
 |---------|---------|
 | `config.yaml` sandbox section | `gateway` |
-| `finsafe-daemon.yaml` | `finsafe-saas` |
+| `finsafe-daemon.yaml` (incl. `host_capabilities`) | `finsafe-saas` |
 
 ```bash
 docker compose -p deer-flow -f docker-compose.yaml -f docker-compose.finsafe.yaml up -d --no-deps gateway
@@ -90,6 +90,7 @@ docker compose -p deer-flow -f docker-compose.yaml -f docker-compose.finsafe.yam
 ## Security
 
 - Production: `network_mode: deny`, rotate `FINSAFE_TOKEN`, `mock_cells: false`.
+- Allowlist egress: set `host_capabilities.allowlist_supported: true` in `finsafe-daemon.yaml` **and** `network_mode: allowlist` in sandbox config; do not use `proxy_profiles` (S1 executor does not support `network.mode=proxy`).
 - See [finsafe-security-guide.md](../../docs/finsafe-security-guide.md) for permission fields and test cases.
 
 ## Upstream DeerFlow footprint

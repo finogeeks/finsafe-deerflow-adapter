@@ -17,11 +17,11 @@
 #     up -d
 #
 # Pin sidecar image:
-#   FINSAFE_SAAS_IMAGE=ghcr.io/geeksfino/finsafe-saas:v0.9.16
+#   FINSAFE_SAAS_IMAGE=ghcr.io/geeksfino/finsafe-saas:v0.9.18
 
 services:
   finsafe-saas:
-    image: ${FINSAFE_SAAS_IMAGE:-ghcr.io/geeksfino/finsafe-saas:v0.9.16}
+    image: ${FINSAFE_SAAS_IMAGE:-ghcr.io/geeksfino/finsafe-saas:v0.9.18}
     platform: ${FINSAFE_SAAS_PLATFORM:-linux/amd64}
     pull_policy: ${FINSAFE_SAAS_PULL_POLICY:-always}
     container_name: deer-flow-finsafe-saas

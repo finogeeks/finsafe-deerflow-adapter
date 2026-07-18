@@ -17,6 +17,22 @@ class FinsafePolicyConfigError(ValueError):
     """Invalid FinSAFE policy settings."""
 
 
+# SaaS `finsafe-server-http` parses `policy` as `HighLevelPolicyV1`, whose
+# `FilesystemIntentV1` only declares `read_only_paths` / `read_write_paths` /
+# `deny_read_paths` and whose `SyscallProfileV1` is a `default | no_network`
+# enum. The wrapper-YAML-only knobs below are rejected with
+# `bad_request_unknown_field` at admission time, so fail fast here instead
+# of letting the cell launch die on the server side.
+_ALLOWED_SYSCALL_PROFILES = ("default", "no_network")
+# `finsafe-scheduler::parse_memory_string` accepts IEC binary suffixes
+# (KiB/MiB/GiB/TiB/PiB, case-insensitive) AND decimal-style suffixes
+# (K/M/G/B, KB/MB/GB). However the cell launch path (bwrap → cgroup write)
+# only honors the non-IEC forms — a `2GiB` policy admits and then the cell
+# exits with code 3. Reject IEC binary suffixes (case-insensitively) so
+# operators see the mistake before any cell is launched.
+_MEMORY_IEC_BINARY_SUFFIXES = ("kib", "mib", "gib", "tib", "pib")
+
+
 def _opt_list(value: Any, *, default: tuple[str, ...] | list[str]) -> list[str]:
     if value is None:
         return list(default)
@@ -56,6 +72,76 @@ def validate_policy_config(cfg: dict[str, Any]) -> None:
     if network_mode == "proxy" and not cfg.get("network_proxy_profile"):
         raise FinsafePolicyConfigError("network_proxy_profile is required when network_mode is proxy")
 
+    _validate_memory_max(cfg.get("memory_max"))
+    _validate_syscalls(cfg.get("syscalls"))
+    _validate_wrapper_only_filesystem_fields(cfg)
+
+
+def _validate_memory_max(value: Any) -> None:
+    """Reject ``memory_max`` forms that the SaaS cell launch path cannot honor.
+
+    ``finsafe-scheduler::parse_memory_string`` accepts IEC binary suffixes
+    (``KiB``/``MiB``/``GiB``/…, case-insensitive) but the bwrap → cgroup write
+    path does not — a ``2GiB`` value admits and then the cell exits with code
+    3. Reject IEC binary suffixes case-insensitively; other invalid forms
+    (e.g. ``"2X"``) are left for the scheduler to reject, since the accepted
+    surface there is intentionally broad (``K``/``M``/``G``/``B``/``KB``/…).
+    """
+    if not isinstance(value, str) or not value.strip():
+        raise FinsafePolicyConfigError(f"memory_max must be a non-empty string (got {value!r})")
+    raw = value.strip().lower()
+    for suffix in _MEMORY_IEC_BINARY_SUFFIXES:
+        if raw.endswith(suffix):
+            raise FinsafePolicyConfigError(
+                f"memory_max does not accept IEC binary suffixes such as {suffix.upper()!r} "
+                f"(got {value!r}); use forms like '2G', '512M', '512MB', or plain bytes "
+                "(the cell launch path rejects KiB/MiB/GiB even though the scheduler "
+                "accepts them, case-insensitively)"
+            )
+
+
+def _validate_syscalls(value: Any) -> None:
+    """Reject wrapper-YAML syscall object forms.
+
+    `HighLevelPolicyV1.syscalls` is a `default | no_network` enum serialized as
+    a string; object forms like `{'allow': [...]}` are wrapper-YAML-only and
+    produce `bad_request_unknown_field` at admission.
+    """
+    if value is None:
+        return
+    if not isinstance(value, str) or value not in _ALLOWED_SYSCALL_PROFILES:
+        raise FinsafePolicyConfigError(
+            "syscalls must be one of: 'default', 'no_network' (got %r); "
+            "object forms such as {'allow': [...]} are wrapper-YAML only and "
+            "are rejected by the SaaS HighLevelPolicyV1 router" % (value,)
+        )
+
+
+def _validate_wrapper_only_filesystem_fields(cfg: dict[str, Any]) -> None:
+    """Reject filesystem knobs that the HighLevelPolicyV1 schema does not carry.
+
+    `skip_default_deny_read` and `deny_write_globs` exist only on the wrapper
+    YAML `FilesystemIntentV1`; the SaaS HTTP path rejects them with
+    `bad_request_unknown_field`. Surface the mistake here with a pointer to
+    the supported alternatives.
+    """
+    if cfg.get("filesystem_skip_default_deny_read"):
+        raise FinsafePolicyConfigError(
+            "filesystem_skip_default_deny_read is a wrapper-YAML field and is "
+            "rejected by the SaaS HighLevelPolicyV1 router; the FinSAFE built-in "
+            "deny-read is always merged in deny mode and cannot be disabled via "
+            "this provider"
+        )
+    if list(cfg.get("filesystem_deny_write_globs") or []):
+        raise FinsafePolicyConfigError(
+            "filesystem_deny_write_globs is a wrapper-YAML field and is rejected "
+            "by the SaaS HighLevelPolicyV1 router; HighLevelPolicyV1 has no "
+            "write-glob deny knob (deny_read_paths is read-only, not a write "
+            "replacement). To block writes to sensitive paths, scope them out "
+            "of filesystem_read_write_paths, or surface a custom rule via "
+            "policy_extensions"
+        )
+
 
 def build_high_level_policy(
     cfg: dict[str, Any],
@@ -78,11 +164,6 @@ def build_high_level_policy(
     deny_read = list(cfg.get("filesystem_deny_read_paths") or [])
     if deny_read:
         filesystem["deny_read_paths"] = deny_read
-    deny_write_globs = list(cfg.get("filesystem_deny_write_globs") or [])
-    if deny_write_globs:
-        filesystem["deny_write_globs"] = deny_write_globs
-    if _opt_bool(cfg.get("filesystem_skip_default_deny_read")):
-        filesystem["skip_default_deny_read"] = True
 
     resources: dict[str, Any] = {
         "memory_max": cfg["memory_max"],
@@ -133,6 +214,10 @@ def build_high_level_policy(
 
     extensions = cfg.get("policy_extensions") or {}
     if extensions:
+        # Shallow one-level merge: when both the existing value and the
+        # extension value are dicts, merge the top level only (nested dicts
+        # are replaced, not recursively merged). Non-dict extensions replace
+        # the existing value outright.
         for key, value in extensions.items():
             if key in policy and isinstance(policy[key], dict) and isinstance(value, dict):
                 policy[key] = {**policy[key], **value}

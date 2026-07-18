@@ -53,7 +53,7 @@ sandbox:
   host_profile: linux-desktop-isolated # strict Linux: bwrap + Landlock + cgroup
   network_mode: deny                   # recommended — no cell egress
 
-  # ── Per-cell cgroup limits (kernel memparse: "2G" not "2GiB") ──
+  # ── Per-cell cgroup limits (memparse: "2G" not "2GiB"; provider rejects IEC suffixes case-insensitively) ──
   memory_max: "2G"
   pids_max: "512"
   cpu_max: "200000 100000"             # ~2 CPUs on cgroup v2
@@ -71,7 +71,8 @@ sandbox:
 |------|-------------|----------------------------|
 | **`deny`** | No outbound connections | **Supported** (recommended) |
 | `host` | Shares sidecar Docker network | Supported (weakest — avoid in prod) |
-| `allowlist` | Only listed host:ports via egress proxy | **Not supported** (`policy_router_unavailable_capability`) |
+| `allowlist` | Only listed host:ports via embedded egress proxy | **Requires** `host_capabilities.allowlist_supported: true` in daemon config |
+| `proxy` | Via upstream proxy profile | **Not supported** by the S1 executor — do not set `network_proxy_profile` / `proxy_profiles` |
 
 ### Identity
 
@@ -124,7 +125,7 @@ host_profiles:
 | Per cell | `sandbox.memory_max` | `2G` | cgroup limit inside each bwrap cell |
 | Per daemon | `host_profiles.*.memory_max` | `8G` | scheduler won't admit cells if host budget exhausted |
 
-Use **`G` / `M`** suffixes (memparse). **`GiB` / `MiB` are rejected** by cgroup writes.
+Use **`G` / `M` / `MB`** suffixes or plain bytes (memparse). **`KiB` / `MiB` / `GiB` / `TiB` / `PiB` are rejected** by the provider (case-insensitively, with `FinsafePolicyConfigError`) before the cell is launched — `finsafe-scheduler` accepts them, but the bwrap → cgroup write path does not and the cell exits with code 3. See [finsafe-security-guide.md §8](finsafe-security-guide.md#8-升级迁移说明破坏性变更).
 
 ---
 
@@ -225,7 +226,7 @@ This is **orthogonal** to FinSAFE — both layers should be enabled.
 | Stricter network | Keep `deny`; never use `host` in prod |
 | More cell RAM | Raise `sandbox.memory_max` (e.g. `4G`) and daemon `host_profiles` ceiling |
 | Longer agent shell | Raise `bash_command_timeout` and/or `resources.timeout_ms` (via timeout on execute) |
-| Allow HTTPS egress | Requires FinSAFE egress-proxy build + `network_mode: allowlist` (not in stock image) |
+| Allow HTTPS egress | Set `host_capabilities.allowlist_supported: true` in `finsafe-daemon.yaml` and `network_mode: allowlist` in sandbox config |
 | Weaker audit only | **Do not** disable FinSAFE; adjust SandboxAudit rules in harness if needed |
 
 ---

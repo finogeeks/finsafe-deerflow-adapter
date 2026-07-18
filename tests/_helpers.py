@@ -45,6 +45,7 @@ FINSAFE_SANDBOX_ATTRS = (
     "bootstrap_timeout_seconds",
     "bootstrap_directories",
     "capture_directory",
+    "download_max_bytes",
     "list_dir_timeout_seconds",
     "search_timeout_seconds",
     "bash_command_timeout",

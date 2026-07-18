@@ -24,6 +24,12 @@ sessions:
 # Broker pool defaults (max_brokers=32, idle_ttl=600s). Do not omit entirely.
 resident: {}
 
+# Policy-router host capabilities (short-lived executions only; not resident brokers).
+# Enable when sandbox.network_mode is allowlist. Embedded finsafe-net-proxy per execution.
+# Do not set proxy_profiles — network.mode=proxy is not supported by the S1 executor.
+host_capabilities:
+  allowlist_supported: true
+
 host_profiles:
   linux-desktop-isolated:
     # Host-level memory budget for all cells on this daemon (not per-cell).
