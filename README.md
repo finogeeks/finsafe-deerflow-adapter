@@ -21,19 +21,31 @@ DeerFlow gateway
 
 ## Install
 
-From GitHub (recommended). **`deerflow-harness` is not on PyPI at 2.x** — this
-package declares it as a git dependency on `bytedance/deer-flow` (subdirectory
-`backend/packages/harness`), so one `pip install` pulls both.
+### From GitHub (standalone / non-workspace)
+
+**`deerflow-harness` is not on PyPI at 2.x** (the published 0.0.1 release is stale),
+so a standalone install must also pull `deerflow-harness` from the DeerFlow repo:
 
 ```bash
-pip install "git+https://github.com/finogeeks/finsafe-deerflow-provider.git@v0.2.1"
+pip install \
+  "deerflow-harness @ git+https://github.com/bytedance/deer-flow.git@c9b6131f8fc4beb186632556ea3d589488edc90f#subdirectory=backend/packages/harness" \
+  "git+https://github.com/finogeeks/finsafe-deerflow-provider.git@v0.2.2"
 ```
 
-Into the DeerFlow gateway environment (uv):
+The provider declares `deerflow-harness>=2.1.0` as a plain dependency so the
+consumer environment chooses the source. In a standalone venv that source is the
+git URL above; inside the DeerFlow backend workspace it is the local workspace
+package (see below).
+
+### Into the DeerFlow backend workspace (uv)
+
+In the DeerFlow monorepo, `deerflow-harness` is already provided as a workspace
+package by `deer-flow/backend`. Simply add the provider from git and keep
+`deerflow-harness` on its workspace source:
 
 ```bash
 cd deer-flow/backend
-uv add "git+https://github.com/finogeeks/finsafe-deerflow-provider.git@v0.2.1"
+uv add "git+https://github.com/finogeeks/finsafe-deerflow-provider.git@v0.2.2"
 ```
 
 Or declare it in `deer-flow/backend/pyproject.toml` so `uv sync --extra finsafe` works:
@@ -43,7 +55,8 @@ Or declare it in `deer-flow/backend/pyproject.toml` so `uv sync --extra finsafe`
 finsafe = ["finsafe-deerflow-provider"]
 
 [tool.uv.sources]
-finsafe-deerflow-provider = { git = "https://github.com/finogeeks/finsafe-deerflow-provider", tag = "v0.2.1" }
+deerflow-harness = { workspace = true }
+finsafe-deerflow-provider = { git = "https://github.com/finogeeks/finsafe-deerflow-provider", tag = "v0.2.2" }
 ```
 
 Then `cd deer-flow/backend && uv sync --extra finsafe`.
@@ -51,9 +64,9 @@ Then `cd deer-flow/backend && uv sync --extra finsafe`.
 Docker: build the gateway image with `--build-arg UV_EXTRAS=finsafe` once the
 source above is declared.
 
-**Harness pin:** provider `v0.2.1` pins `deerflow-harness` to commit
-`c9b6131f` on `bytedance/deer-flow` `main` (harness 2.1.0). Bump the git rev in
-`pyproject.toml` when validating against a newer DeerFlow release.
+**Harness pin:** validate against `deerflow-harness` 2.1.0 (commit `c9b6131f` on
+`bytedance/deer-flow` `main`). Bump the `>=` floor in `pyproject.toml` when you
+validate against a newer DeerFlow release.
 
 ## DeerFlow config
 

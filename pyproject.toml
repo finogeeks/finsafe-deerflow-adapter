@@ -1,13 +1,16 @@
 [project]
 name = "finsafe-deerflow-provider"
-version = "0.2.1"
+version = "0.2.2"
 description = "FinSAFE SaaS sandbox provider for DeerFlow (plugin via sandbox.use)"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
 dependencies = [
-    # PyPI deerflow-harness is stale (0.0.1); install from upstream monorepo subdirectory.
-    "deerflow-harness @ git+https://github.com/bytedance/deer-flow.git@c9b6131f8fc4beb186632556ea3d589488edc90f#subdirectory=backend/packages/harness",
+    # Consumer environment must provide deerflow-harness. PyPI has a stale 0.0.1
+    # release, so standalone installs should pull harness from the DeerFlow repo
+    # (see README). In the DeerFlow backend workspace, harness is provided by
+    # the local workspace package, avoiding a source conflict.
+    "deerflow-harness>=2.1.0",
     "httpx>=0.28.0",
 ]
 
