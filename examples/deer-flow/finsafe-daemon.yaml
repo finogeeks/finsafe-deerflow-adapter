@@ -1,0 +1,31 @@
+# FinSAFE sidecar daemon — copy to deer-flow/docker/finsafe-daemon.yaml
+# Token must match FINSAFE_TOKEN env and sandbox.token in DeerFlow config.yaml.
+
+schema_version: 1
+
+server:
+  bind: "0.0.0.0:8080"
+
+auth:
+  bearer_token: "dev-change-me"        # rotate in production
+  user_id: "app-user"
+  tenant_id: "acme"
+
+storage:
+  runtime_root: "/var/lib/finsafe"
+
+executor:
+  finsafe_cli: "/usr/local/bin/finsafe"
+  mock_cells: false                    # must be false for real isolation
+
+sessions:
+  reaper_interval_secs: 60
+
+# Broker pool defaults (max_brokers=32, idle_ttl=600s). Do not omit entirely.
+resident: {}
+
+host_profiles:
+  linux-desktop-isolated:
+    # Host-level memory budget for all cells on this daemon (not per-cell).
+    # Per-cell limit is sandbox.memory_max in config.yaml (default 2G).
+    memory_max: "8G"

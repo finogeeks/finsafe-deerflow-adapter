@@ -1,0 +1,51 @@
+# DeerFlow — FinSAFE sidecar overlay
+#
+# Adds finsafe-saas sidecar and wires FINSAFE_* env into the gateway.
+# Requires gateway built with UV_EXTRAS=finsafe (see FINSAFE.md).
+#
+# Copy this file to deer-flow/docker/ alongside finsafe-daemon.yaml, then:
+#
+#   cd deer-flow/docker
+#   export FINSAFE_TOKEN=dev-change-me
+#   UV_EXTRAS=finsafe docker compose -p deer-flow \
+#     -f docker-compose.yaml \
+#     -f docker-compose.finsafe.yaml \
+#     build gateway
+#   docker compose -p deer-flow \
+#     -f docker-compose.yaml \
+#     -f docker-compose.finsafe.yaml \
+#     up -d
+#
+# Pin sidecar image:
+#   FINSAFE_SAAS_IMAGE=ghcr.io/geeksfino/finsafe-saas:v0.9.16
+
+services:
+  finsafe-saas:
+    image: ${FINSAFE_SAAS_IMAGE:-ghcr.io/geeksfino/finsafe-saas:v0.9.16}
+    platform: ${FINSAFE_SAAS_PLATFORM:-linux/amd64}
+    pull_policy: ${FINSAFE_SAAS_PULL_POLICY:-always}
+    container_name: deer-flow-finsafe-saas
+    privileged: true
+    cgroup: host
+    command: ["--config", "/etc/finsafe/daemon.yaml"]
+    environment:
+      - FINSAFE_HELPER_ALLOWED_CGROUP_ROOT=/sys/fs/cgroup/finsafe.slice
+    volumes:
+      - finsafe-runtime:/var/lib/finsafe
+      - ./finsafe-daemon.yaml:/etc/finsafe/daemon.yaml:ro
+    networks:
+      - deer-flow
+    restart: unless-stopped
+
+  gateway:
+    build:
+      args:
+        UV_EXTRAS: ${UV_EXTRAS:-finsafe}
+    environment:
+      - FINSAFE_BASE_URL=http://finsafe-saas:8080
+      - FINSAFE_TOKEN=${FINSAFE_TOKEN:-dev-change-me}
+    depends_on:
+      - finsafe-saas
+
+volumes:
+  finsafe-runtime:

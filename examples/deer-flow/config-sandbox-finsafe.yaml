@@ -1,0 +1,69 @@
+# FinSAFE sandbox configuration for DeerFlow (Option 5)
+#
+# Copy the `sandbox:` block below into your project-root config.yaml,
+# replacing the default LocalSandboxProvider section.
+#
+# Full integration guide:
+#   https://github.com/finogeeks/finsafe-deerflow-provider/blob/main/docs/INTEGRATION.md
+# Field reference & test cases:
+#   docs/finsafe-security-guide.md (中文)
+
+sandbox:
+  use: finsafe_deerflow_provider:FinsafeSandboxProvider
+
+  # ── Sidecar connectivity (must match finsafe-daemon.yaml + Compose env) ──
+  base_url: $FINSAFE_BASE_URL          # http://finsafe-saas:8080 inside Compose
+  token: $FINSAFE_TOKEN                # must match auth.bearer_token in daemon YAML
+  tenant_id: acme
+  user_id: app-user                    # fallback FinSAFE identity; logged-in users override
+
+  # ── Cell posture ──
+  policy_id: deerflow-sandbox
+  host_profile: linux-desktop-isolated # bwrap + Landlock + cgroup
+  network_mode: deny                   # production: deny | dev-only: host | allowlist needs egress-proxy
+
+  # ── Per-cell cgroup limits (kernel memparse: "2G" not "2GiB") ──
+  memory_max: "2G"
+  pids_max: "512"
+  cpu_max: "200000 100000"             # ~2 CPUs on cgroup v2
+
+  # ── DeerFlow tool limits (apply before / inside cell) ──
+  bash_command_timeout: 600            # seconds; also sets cell resources.timeout_ms
+  bash_output_max_chars: 20000
+  read_file_output_max_chars: 50000
+  ls_output_max_chars: 20000
+
+  # ── Provider HTTP / session tuning (defaults usually fine) ──
+  # agent_id: deerflow
+  # execution_mode: short-lived
+  # session_mode: workspace
+  # http_timeout_seconds: 120
+  # execution_poll_interval_seconds: 0.1
+  # download_max_bytes: 104857600
+
+  # ── Filesystem policy (advanced — defaults enable /bin/sh + redirects) ──
+  # filesystem_read_only_paths:
+  #   - /usr
+  #   - /bin
+  #   - /sbin
+  #   - /lib
+  #   - /lib64
+  #   - /etc
+  # filesystem_read_write_paths:
+  #   - /dev/null
+  # filesystem_deny_read_paths: []
+  # filesystem_deny_write_globs: []
+  # filesystem_skip_default_deny_read: false   # true disables FinSAFE built-in deny-read
+
+  # ── Network advanced (allowlist/proxy require non-stock finsafe-saas) ──
+  # network_mode: allowlist
+  # network_allowlist:
+  #   - "api.example.com:443"
+  # network_proxy_profile: my-profile
+  # network_tls_terminate: false
+  # network_start_internal_proxy: false
+
+  # ── FinSAFE HighLevelPolicyV1 extensions ──
+  # policy_extensions:
+  #   environment:
+  #     passthrough: ["PATH", "LANG"]

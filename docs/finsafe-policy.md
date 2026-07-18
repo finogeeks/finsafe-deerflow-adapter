@@ -7,7 +7,8 @@ This document is the **reference policy** for DeerFlow deployments that use
 2. **`FinsafeSandboxProvider`** — per-execution JSON policy sent to finsafe-server
 3. **FinSAFE compiler defaults** — built-in deny-read, bubblewrap, Landlock (not repeated in YAML)
 
-For compose wiring and smoke tests see [FINSAFE.md](FINSAFE.md).
+For compose wiring and smoke tests see [INTEGRATION.md](INTEGRATION.md) and
+[examples/deer-flow/FINSAFE.md](../examples/deer-flow/FINSAFE.md).
 
 **Operator guide (中文):** [finsafe-security-guide.md](finsafe-security-guide.md) —
 configuration templates, manual test cases, and automated smoke/chat E2E steps.
@@ -34,7 +35,8 @@ FinSAFE built-in deny-read          .ssh, .env, /etc/shadow, docker.sock, …
 
 ## 1. Recommended `config.yaml` (DeerFlow)
 
-Copy into `config.yaml` when enabling Option 5 in `config.example.yaml`:
+Copy into `config.yaml` when enabling FinSAFE sandbox (full template:
+[examples/deer-flow/config-sandbox-finsafe.yaml](../examples/deer-flow/config-sandbox-finsafe.yaml)):
 
 ```yaml
 sandbox:
@@ -130,7 +132,7 @@ Use **`G` / `M`** suffixes (memparse). **`GiB` / `MiB` are rejected** by cgroup 
 
 Every `bash` / file tool call submits a payload equivalent to the defaults below.
 All `policy` fields are overridable via `config.yaml` → `sandbox:` (see
-`config.example.yaml` Option 5 and `sandbox_config.py`). Assembly lives in
+`examples/deer-flow/config-sandbox-finsafe.yaml`). Assembly lives in
 `finsafe_policy.build_high_level_policy()`.
 
 ```json

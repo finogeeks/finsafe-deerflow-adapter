@@ -5,7 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 # All FinSAFE-specific sandbox.* keys the provider reads via getattr. Mirrors the
-# config surface documented in README / config.example.yaml Option 5.
+# config surface documented in examples/deer-flow/config-sandbox-finsafe.yaml.
 FINSAFE_SANDBOX_ATTRS = (
     "token",
     "base_url",

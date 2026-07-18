@@ -9,48 +9,40 @@ implements `FinsafeSandboxProvider` so agent tools run in FinSAFE-isolated cells
 
 **No DeerFlow core code changes** — install this package and configure `sandbox.use`.
 
+## Quick start
+
+**Start here:** [docs/INTEGRATION.md](docs/INTEGRATION.md) — end-to-end integration,
+sandbox permissions, Compose wiring, and acceptance tests.
+
+```bash
+# 1. Install into DeerFlow backend (v0.2.2)
+cd deer-flow/backend
+# add finsafe extra + git source to pyproject.toml (see INTEGRATION.md)
+uv sync --extra finsafe
+
+# 2. Configure config.yaml (copy from examples/deer-flow/config-sandbox-finsafe.yaml)
+
+# 3. Start sidecar + DeerFlow (copy examples/deer-flow/* to deer-flow/docker/)
+```
+
 ## Architecture
 
 ```
-FinSAFE daemon (ghcr.io/geeksfino/finsafe-saas)   ← docker/ in this repo
+FinSAFE daemon (ghcr.io/geeksfino/finsafe-saas)   ← docker/ or examples/deer-flow/
         ↑ HTTP
 finsafe-deerflow-provider (this package)
         ↑ sandbox.use
 DeerFlow gateway
 ```
 
-## Install
+## Install (summary)
 
-### From GitHub (standalone / non-workspace)
-
-**`deerflow-harness` is not on PyPI at 2.x** (the published 0.0.1 release is stale),
-so a standalone install must also pull `deerflow-harness` from the DeerFlow repo:
-
-```bash
-pip install \
-  "deerflow-harness @ git+https://github.com/bytedance/deer-flow.git@c9b6131f8fc4beb186632556ea3d589488edc90f#subdirectory=backend/packages/harness" \
-  "git+https://github.com/finogeeks/finsafe-deerflow-provider.git@v0.2.2"
-```
-
-The provider declares `deerflow-harness>=2.1.0` as a plain dependency so the
-consumer environment chooses the source. In a standalone venv that source is the
-git URL above; inside the DeerFlow backend workspace it is the local workspace
-package (see below).
-
-### Into the DeerFlow backend workspace (uv)
-
-In the DeerFlow monorepo, `deerflow-harness` is already provided as a workspace
-package by `deer-flow/backend`. Simply add the provider from git and keep
-`deerflow-harness` on its workspace source:
-
-```bash
-cd deer-flow/backend
-uv add "git+https://github.com/finogeeks/finsafe-deerflow-provider.git@v0.2.2"
-```
-
-Or declare it in `deer-flow/backend/pyproject.toml` so `uv sync --extra finsafe` works:
+Provider **v0.2.2** declares `deerflow-harness>=2.1.0` as a plain dependency — the
+consumer environment chooses the source (workspace in DeerFlow backend, git URL in
+standalone venv). Details: [INTEGRATION.md §3](docs/INTEGRATION.md#3-安装-provider).
 
 ```toml
+# deer-flow/backend/pyproject.toml
 [project.optional-dependencies]
 finsafe = ["finsafe-deerflow-provider"]
 
@@ -59,16 +51,9 @@ deerflow-harness = { workspace = true }
 finsafe-deerflow-provider = { git = "https://github.com/finogeeks/finsafe-deerflow-provider", tag = "v0.2.2" }
 ```
 
-Then `cd deer-flow/backend && uv sync --extra finsafe`.
+Docker gateway build: `UV_EXTRAS=finsafe`.
 
-Docker: build the gateway image with `--build-arg UV_EXTRAS=finsafe` once the
-source above is declared.
-
-**Harness pin:** validate against `deerflow-harness` 2.1.0 (commit `c9b6131f` on
-`bytedance/deer-flow` `main`). Bump the `>=` floor in `pyproject.toml` when you
-validate against a newer DeerFlow release.
-
-## DeerFlow config
+## DeerFlow config (production minimum)
 
 ```yaml
 sandbox:
@@ -85,42 +70,34 @@ sandbox:
   cpu_max: "200000 100000"
 ```
 
+Full template with all tunable fields:
+[examples/deer-flow/config-sandbox-finsafe.yaml](examples/deer-flow/config-sandbox-finsafe.yaml).
+
 Restart gateway after changing `sandbox.use`.
-
-## Start FinSAFE sidecar
-
-**Standalone** (customer infra):
-
-```bash
-cd docker && docker compose up -d
-export FINSAFE_BASE_URL=http://127.0.0.1:18080 FINSAFE_TOKEN=dev-change-me
-../scripts/verify-sidecar.sh
-```
-
-**With DeerFlow**: use `deer-flow/docker/docker-compose.finsafe.yaml` overlay — see
-`deer-flow/docker/FINSAFE.md`.
-
-## Tests
-
-Unit tests need `deerflow-harness` importable. Easiest is to run them through a
-DeerFlow backend venv (which already has harness):
-
-```bash
-chmod +x scripts/*.sh
-./scripts/smoke.sh --quick          # unit tests only (via DeerFlow venv)
-./scripts/smoke.sh --sidecar        # start sidecar + unit + integration
-```
-
-`smoke.sh` uses `DEER_FLOW_BACKEND` (default `../deer-flow/backend`) to locate the
-uv environment. After `pip install` from GitHub, a venv with the provider alone also works.
 
 ## Documentation
 
 | Doc | Content |
 |-----|---------|
-| [docs/finsafe-policy.md](docs/finsafe-policy.md) | Policy matrix (EN) |
-| [docs/finsafe-security-guide.md](docs/finsafe-security-guide.md) | Security config & test cases (中文) |
+| **[docs/INTEGRATION.md](docs/INTEGRATION.md)** | **主集成指南**（安装、配置、权限、验收） |
+| [docs/finsafe-security-guide.md](docs/finsafe-security-guide.md) | 沙箱权限字段表、配置模板、测试用例（中文） |
+| [docs/finsafe-policy.md](docs/finsafe-policy.md) | 策略栈与 JSON policy 参考（英文） |
+| [examples/deer-flow/FINSAFE.md](examples/deer-flow/FINSAFE.md) | DeerFlow Docker Compose 接线 |
+
+## Tests
+
+```bash
+chmod +x scripts/*.sh
+DEER_FLOW_BACKEND=/path/to/deer-flow/backend ./scripts/smoke.sh --quick   # unit only
+DEER_FLOW_BACKEND=/path/to/deer-flow/backend ./scripts/smoke.sh --sidecar  # + integration
+```
 
 ## DeerFlow repo footprint
 
-DeerFlow keeps only three wiring files: `docker-compose.finsafe.yaml`, `finsafe-daemon.yaml`, `FINSAFE.md`.
+Copy into `deer-flow/docker/` from [examples/deer-flow/](examples/deer-flow/):
+
+- `docker-compose.finsafe.yaml`
+- `finsafe-daemon.yaml`
+- (optional) `FINSAFE.md` for operators
+
+No other DeerFlow core changes required.

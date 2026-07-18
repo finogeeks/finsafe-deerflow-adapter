@@ -2,7 +2,9 @@
 
 本文档面向**部署与验收人员**：说明当前 DeerFlow 集成中**可配置的安全项**、推荐配置模板，以及**可重复执行的测试用例**（手动 + 自动化）。
 
-策略细节与架构图见 [finsafe-policy.md](finsafe-policy.md)；DeerFlow Compose 接线见上游 `deer-flow/docker/FINSAFE.md`。
+**集成主指南：** [INTEGRATION.md](INTEGRATION.md)
+
+策略细节与架构图见 [finsafe-policy.md](finsafe-policy.md)；DeerFlow Compose 接线见 [examples/deer-flow/FINSAFE.md](../examples/deer-flow/FINSAFE.md)。
 
 ---
 
@@ -57,6 +59,10 @@ docker compose -p deer-flow \
   up -d
 ```
 
+将 [examples/deer-flow/](../examples/deer-flow/) 下 `docker-compose.finsafe.yaml` 与
+`finsafe-daemon.yaml` 复制到 `deer-flow/docker/` 后再执行上述命令。详见
+[INTEGRATION.md §6.2](INTEGRATION.md#62-与-deerflow-compose-一起运行)。
+
 浏览器入口：`http://<主机>:2026`
 
 ### 2.2 三处配置必须一致
@@ -100,7 +106,7 @@ docker logs deer-flow-finsafe-saas 2>&1 | grep -E 'mock='
 
 ### 3.1 DeerFlow `config.yaml` → `sandbox:`
 
-在 `config.example.yaml` **Option 5** 有注释模板；启用示例：
+在 [examples/deer-flow/config-sandbox-finsafe.yaml](../examples/deer-flow/config-sandbox-finsafe.yaml) 有完整注释模板；启用示例：
 
 ```yaml
 sandbox:
@@ -228,7 +234,7 @@ host_profiles:
 | `policy_id` | `policy_id` | `deerflow-sandbox` |
 | `network.mode` | `network_mode` | `deny` |
 | `network.allowlist` | `network_allowlist` | `[]` |
-| `network.proxy_profile` 等 | `network_proxy_profile`、`network_tls_terminate`、… | 见 `config.example.yaml` Option 5 |
+| `network.proxy_profile` 等 | `network_proxy_profile`、`network_tls_terminate`、… | 见 config-sandbox-finsafe.yaml |
 | `resources.*` | `memory_max`、`pids_max`、`cpu_max`、`bash_command_timeout` | `2G` / `512` / `200000 100000` / 600s |
 | `filesystem.read_only_paths` | `filesystem_read_only_paths` | `/usr`、`/bin`、… |
 | `filesystem.read_write_paths` | `filesystem_read_write_paths` | `[/dev/null]` |
@@ -249,10 +255,10 @@ host_profiles:
 | `request.mode` | `execution_mode` | `short-lived` |
 | POST `/v1/sessions` mode | `session_mode` | `workspace` |
 | HTTP 超时 / 轮询 | `http_timeout_seconds`、`execution_poll_interval_seconds` | `120` / `0.1` |
-| bootstrap 目录 | `bootstrap_directories`、`capture_directory` | 见 Option 5 |
+| bootstrap 目录 | `bootstrap_directories`、`capture_directory` | 见 config-sandbox-finsafe.yaml |
 | 下载上限 | `download_max_bytes` | `104857600` |
 
-完整字段列表与注释见 **`config.example.yaml` Option 5** 与 **`sandbox_config.py`**。
+完整字段列表与注释见 **`examples/deer-flow/config-sandbox-finsafe.yaml`**。
 
 `network_mode: allowlist` 时 JSON 变为：
 
@@ -451,8 +457,8 @@ sandbox:
 #### TC-AUTO-01 单元测试（无需 sidecar）
 
 ```bash
-cd /path/to/deer-flow
-./scripts/smoke.sh --quick
+cd /path/to/finsafe-deerflow-provider
+DEER_FLOW_BACKEND=/path/to/deer-flow/backend ./scripts/smoke.sh --quick
 ```
 
 期望：`tests/test_provider.py` 与 `tests/test_policy.py` 全部通过。
@@ -460,10 +466,11 @@ cd /path/to/deer-flow
 #### TC-AUTO-02 集成冒烟（Provider → daemon → cell）
 
 ```bash
-./scripts/smoke.sh
+cd /path/to/finsafe-deerflow-provider
+DEER_FLOW_BACKEND=/path/to/deer-flow/backend ./scripts/smoke.sh
 ```
 
-覆盖：`tests/test_integration.py` 共 7 项：
+覆盖 `tests/test_integration.py` 共 7 项：
 
 | 测试函数 | 验证点 |
 |----------|--------|
@@ -479,8 +486,11 @@ cd /path/to/deer-flow
 
 #### TC-AUTO-03 聊天窗口 E2E（完整 HTTP 路径）
 
+> 当前仓库以 provider 集成测试为主；完整 HTTP E2E 可按 §5.2 手动用例验收。
+
 ```bash
-./scripts/smoke.sh
+cd /path/to/finsafe-deerflow-provider
+DEER_FLOW_BACKEND=/path/to/deer-flow/backend ./scripts/smoke.sh
 ```
 
 模拟：注册 → 建 thread → SSE stream → Fake LLM 强制一次 bash。
@@ -491,11 +501,11 @@ cd /path/to/deer-flow
 - 日志含：`Created FinSAFE sandbox`、`[SandboxAudit] … "verdict": "pass"`
 - Sidecar：`mock=false`
 
-在 gateway 内单独跑：
+在 gateway 内单独跑 provider 集成测试：
 
 ```bash
 docker exec deer-flow-gateway sh -c \
-  uv run pytest tests/test_integration.py -m integration -v
+  'uv run pytest /path/to/finsafe-deerflow-provider/tests/test_integration.py -m integration -v'
 ```
 
 ---
@@ -699,8 +709,8 @@ docker logs deer-flow-finsafe-saas 2>&1 | grep -E 'mock=|exec-'
 - [ ] 已轮换 `bearer_token` / `FINSAFE_TOKEN`（非 `dev-change-me`）
 - [ ] `memory_max` / `host_profiles.*.memory_max` 使用 `G` 后缀
 - [ ] Sidecar：`privileged: true`、`cgroup: host`、`FINSAFE_HELPER_ALLOWED_CGROUP_ROOT` 已设置
-- [ ] `./scripts/smoke.sh` 通过
-- [ ] `./scripts/smoke.sh` 通过（deny 网络环境）
+- [ ] `DEER_FLOW_BACKEND=... ./scripts/smoke.sh --quick` 通过
+- [ ] `./scripts/smoke.sh` 通过（deny 网络环境，sidecar 已启动）
 - [ ] 手动 TC-MAN-01、TC-NET-01、TC-ISO-01、TC-AUD-01 各执行一次
 
 ---
@@ -709,9 +719,12 @@ docker logs deer-flow-finsafe-saas 2>&1 | grep -E 'mock=|exec-'
 
 | 文件 | 作用 |
 |------|------|
-| `config.example.yaml` Option 5 | 配置模板 |
-| `docker/finsafe-daemon.yaml` | Sidecar daemon |
-| `docker/docker-compose.finsafe.yaml` | Compose overlay |
+| [docs/INTEGRATION.md](INTEGRATION.md) | 主集成指南 |
+| [examples/deer-flow/config-sandbox-finsafe.yaml](../examples/deer-flow/config-sandbox-finsafe.yaml) | `config.yaml` sandbox 模板 |
+| [examples/deer-flow/finsafe-daemon.yaml](../examples/deer-flow/finsafe-daemon.yaml) | Sidecar daemon |
+| [examples/deer-flow/docker-compose.finsafe.yaml](../examples/deer-flow/docker-compose.finsafe.yaml) | DeerFlow Compose overlay |
+| [examples/deer-flow/FINSAFE.md](../examples/deer-flow/FINSAFE.md) | DeerFlow 接线说明 |
+| `docker/finsafe-daemon.yaml` | 独立 sidecar daemon 模板 |
 | `scripts/smoke.sh` | 单元 + live 集成冒烟 |
 | `tests/test_integration.py` | 7 项 live 集成测试 |
-| `docs/finsafe-policy.md` | 策略参考（英文） |
+| [docs/finsafe-policy.md](finsafe-policy.md) | 策略参考（英文） |
