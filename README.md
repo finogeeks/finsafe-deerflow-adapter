@@ -21,17 +21,19 @@ DeerFlow gateway
 
 ## Install
 
-Installed from GitHub (no PyPI publish required); `deerflow-harness` resolves from PyPI.
+From GitHub (recommended). **`deerflow-harness` is not on PyPI at 2.x** — this
+package declares it as a git dependency on `bytedance/deer-flow` (subdirectory
+`backend/packages/harness`), so one `pip install` pulls both.
 
 ```bash
-pip install "git+https://github.com/finogeeks/finsafe-deerflow-adapter.git@v0.1.0"
+pip install "git+https://github.com/finogeeks/finsafe-deerflow-adapter.git@v0.1.1"
 ```
 
 Into the DeerFlow gateway environment (uv):
 
 ```bash
 cd deer-flow/backend
-uv add "git+https://github.com/finogeeks/finsafe-deerflow-adapter.git@v0.1.0"
+uv add "git+https://github.com/finogeeks/finsafe-deerflow-adapter.git@v0.1.1"
 ```
 
 Or declare it in `deer-flow/backend/pyproject.toml` so `uv sync --extra finsafe` works:
@@ -41,13 +43,17 @@ Or declare it in `deer-flow/backend/pyproject.toml` so `uv sync --extra finsafe`
 finsafe = ["finsafe-deerflow-adapter"]
 
 [tool.uv.sources]
-finsafe-deerflow-adapter = { git = "https://github.com/finogeeks/finsafe-deerflow-adapter", tag = "v0.1.0" }
+finsafe-deerflow-adapter = { git = "https://github.com/finogeeks/finsafe-deerflow-adapter", tag = "v0.1.1" }
 ```
 
 Then `cd deer-flow/backend && uv sync --extra finsafe`.
 
 Docker: build the gateway image with `--build-arg UV_EXTRAS=finsafe` once the
 source above is declared.
+
+**Harness pin:** adapter `v0.1.1` pins `deerflow-harness` to commit
+`c9b6131f` on `bytedance/deer-flow` `main` (harness 2.1.0). Bump the git rev in
+`pyproject.toml` when validating against a newer DeerFlow release.
 
 ## DeerFlow config
 
@@ -93,7 +99,7 @@ chmod +x scripts/*.sh
 ```
 
 `smoke.sh` uses `DEER_FLOW_BACKEND` (default `../deer-flow/backend`) to locate the
-uv environment. A standalone `pip install deerflow-harness` venv also works.
+uv environment. After `pip install` from GitHub, a venv with the adapter alone also works.
 
 ## Documentation
 
