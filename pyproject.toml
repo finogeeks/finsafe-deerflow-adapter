@@ -1,6 +1,6 @@
 [project]
 name = "finsafe-deerflow-adapter"
-version = "0.1.1"
+version = "0.1.2"
 description = "FinSAFE SaaS sandbox provider for DeerFlow (plugin via sandbox.use)"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -22,6 +22,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["finsafe_deerflow_adapter"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
