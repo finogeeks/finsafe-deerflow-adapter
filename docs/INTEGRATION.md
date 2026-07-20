@@ -10,7 +10,7 @@
 | [../examples/deer-flow/FINSAFE.md](../examples/deer-flow/FINSAFE.md) | DeerFlow Docker Compose 接线说明 |
 | [../examples/deer-flow/config-sandbox-finsafe.yaml](../examples/deer-flow/config-sandbox-finsafe.yaml) | 可复制到 `config.yaml` 的 `sandbox:` 模板 |
 
-Provider 版本：**v0.2.2**（`https://github.com/finogeeks/finsafe-deerflow-provider`）
+Provider 版本：**v0.2.3**（`https://github.com/finogeeks/finsafe-deerflow-provider`）
 
 ---
 
@@ -43,7 +43,7 @@ Provider 版本：**v0.2.2**（`https://github.com/finogeeks/finsafe-deerflow-pr
 | DeerFlow | `2.1.0+`（harness workspace） |
 | Python | `>=3.12` |
 | FinSAFE sidecar | Docker；Linux 宿主机需支持 bubblewrap + cgroup v2 |
-| Sidecar 镜像 | `ghcr.io/geeksfino/finsafe-saas:v0.9.20`（allowlist 需 v0.9.20+；可 pin 其他 tag） |
+| Sidecar 镜像 | `ghcr.io/geeksfino/finsafe-saas:v0.9.20`（allowlist 需 v0.9.20+，含 [finsafe#138](https://github.com/Geeksfino/finsafe/pull/138) loopback relay；`docker compose pull` 刷新） |
 
 Sidecar 容器需 **`privileged: true`** 与 **`cgroup: host`**（见 `docker/docker-compose.yaml`）。
 
@@ -61,7 +61,7 @@ finsafe = ["finsafe-deerflow-provider"]
 
 [tool.uv.sources]
 deerflow-harness = { workspace = true }
-finsafe-deerflow-provider = { git = "https://github.com/finogeeks/finsafe-deerflow-provider", tag = "v0.2.2" }
+finsafe-deerflow-provider = { git = "https://github.com/finogeeks/finsafe-deerflow-provider", tag = "v0.2.3" }
 ```
 
 ```bash
@@ -82,7 +82,7 @@ PyPI 上的 `deerflow-harness` 0.0.1 已过时，需同时从 DeerFlow 仓库安
 ```bash
 pip install \
   "deerflow-harness @ git+https://github.com/bytedance/deer-flow.git@c9b6131f8fc4beb186632556ea3d589488edc90f#subdirectory=backend/packages/harness" \
-  "git+https://github.com/finogeeks/finsafe-deerflow-provider.git@v0.2.2"
+  "git+https://github.com/finogeeks/finsafe-deerflow-provider.git@v0.2.3"
 ```
 
 ---
@@ -153,7 +153,7 @@ sandbox:
 |----------------|-----------|---------------------|
 | **`deny`** | 禁止 | **支持（推荐）** |
 | `host` | 共享 sidecar Docker 网络 | 支持（仅开发） |
-| `allowlist` | 白名单 + 内嵌 egress proxy | **v0.9.20+**（需 `host_capabilities.allowlist_supported: true`） |
+| `allowlist` | 白名单 + 内嵌 egress proxy + cell 内 loopback relay | **v0.9.20+**（需 `host_capabilities.allowlist_supported: true`；标准 `curl`/Python `requests` 需 finsafe#138+ 镜像） |
 | `proxy` | 经代理出网 | **不支持**（S1 executor 不支持 `network.mode=proxy`，不要配 `network_proxy_profile`/`proxy_profiles`） |
 
 需要 Agent 访问公网时，优先使用 DeerFlow **`web_search` / `web_fetch` 等工具**（在 gateway 侧执行），而不是放宽 cell 网络。
@@ -346,7 +346,7 @@ Fresh `config.yaml` 未配置 LLM API key。运行 `make setup` 配置模型；*
 
 ### `uv sync --extra finsafe` 报 deerflow-harness 来源冲突
 
-Provider v0.2.2 已将 harness 改为普通依赖 `deerflow-harness>=2.1.0`。请保持：
+Provider v0.2.3 已将 harness 改为普通依赖 `deerflow-harness>=2.1.0`。请保持：
 
 ```toml
 [tool.uv.sources]
@@ -359,8 +359,9 @@ deerflow-harness = { workspace = true }
 
 1. **`policy_router_unavailable_capability`** — `finsafe-daemon.yaml` 未设置 `host_capabilities.allowlist_supported: true`，或 sidecar 版本低于 v0.9.18。
 2. **Cell launch exit 3** — 镜像未预创建 `/run/finsafe-proxy.sock`；请升级到 **v0.9.20+**（GHCR 官方镜像）或在 entrypoint 中 `touch /run/finsafe-proxy.sock`。
-3. Admission 通过后 launch 仍可能因 bwrap / privileged 不足失败；容器需 `--privileged` + bubblewrap。检查 sidecar 日志 `host-capabilities allowlist=false`。
-4. 生产默认仍推荐 `network_mode: deny`；allowlist 用于 cell 内需访问特定 HTTPS 端点的场景。
+3. **Admission 通过但 cell 内 `curl` 报 `Unsupported proxy scheme`** — sidecar 镜像早于 [finsafe#138](https://github.com/Geeksfino/finsafe/pull/138)（仅注入 `HTTP_PROXY=unix://…`，标准 HTTP 客户端不支持）。请 `docker compose pull finsafe-saas` 拉取最新 `v0.9.20`（2026-07-20 后重建含 loopback relay），并确认 `finsafe-daemon.yaml` 已启用 `host_capabilities.allowlist_supported: true`。
+4. Admission 通过后 launch 仍可能因 bwrap / privileged 不足失败；容器需 `--privileged` + bubblewrap。检查 sidecar 日志 `host-capabilities allowlist=false`。
+5. 生产默认仍推荐 `network_mode: deny`；allowlist 用于 cell 内需访问特定 HTTPS 端点的场景。
 
 ### Agent bash 报 exit 127
 

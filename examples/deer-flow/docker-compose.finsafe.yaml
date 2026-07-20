@@ -16,7 +16,7 @@
 #     -f docker-compose.finsafe.yaml \
 #     up -d
 #
-# Pin sidecar image (allowlist needs v0.9.20+ for /run/finsafe-proxy.sock in GHCR):
+# Pin sidecar image (allowlist: v0.9.20+ with /run/finsafe-proxy.sock + loopback relay from finsafe#138):
 #   FINSAFE_SAAS_IMAGE=ghcr.io/geeksfino/finsafe-saas:v0.9.20
 
 services:

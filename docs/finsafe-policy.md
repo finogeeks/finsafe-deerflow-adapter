@@ -71,7 +71,7 @@ sandbox:
 |------|-------------|----------------------------|
 | **`deny`** | No outbound connections | **Supported** (recommended) |
 | `host` | Shares sidecar Docker network | Supported (weakest — avoid in prod) |
-| `allowlist` | Only listed host:ports via embedded egress proxy | **Requires** `host_capabilities.allowlist_supported: true` in daemon config |
+| `allowlist` | Only listed host:ports via embedded egress proxy + in-cell loopback relay (v0.9.20+ / finsafe#138) | **Requires** `host_capabilities.allowlist_supported: true` in daemon config |
 | `proxy` | Via upstream proxy profile | **Not supported** by the S1 executor — do not set `network_proxy_profile` / `proxy_profiles` |
 
 ### Identity

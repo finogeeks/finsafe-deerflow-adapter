@@ -8,7 +8,7 @@
 # To change the token, edit auth.bearer_token in finsafe-daemon.yaml and use the
 # same value in DeerFlow's sandbox.token / FINSAFE_TOKEN.
 #
-# Pin image:
+# Pin image (allowlist + standard HTTP clients need v0.9.20 rebuilt after Geeksfino/finsafe#138):
 #   FINSAFE_SAAS_IMAGE=ghcr.io/geeksfino/finsafe-saas:v0.9.20
 
 services:

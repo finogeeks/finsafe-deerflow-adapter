@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import uuid
 from unittest.mock import patch
 
@@ -11,6 +12,8 @@ import pytest
 from _helpers import make_mock_sandbox_config as _mock_sandbox_config
 
 pytestmark = pytest.mark.integration
+
+_HTTP_CODE = re.compile(r":(\d{3})$")
 
 
 def _base_cfg(**overrides):
@@ -26,6 +29,15 @@ def _base_cfg(**overrides):
     }
     cfg.update(overrides)
     return cfg
+
+
+def _http_status(output: str, prefix: str) -> int | None:
+    for line in output.splitlines():
+        if line.startswith(prefix):
+            match = _HTTP_CODE.search(line.strip())
+            if match:
+                return int(match.group(1))
+    return None
 
 
 def test_allowlist_requires_list():
@@ -73,14 +85,10 @@ def require_finsafe_daemon():
 
 
 def test_allowlist_live(require_finsafe_daemon):
-    """Live: observe sidecar behavior under allowlist mode.
+    """Live: allowlist cell reaches whitelisted HTTPS via loopback relay (finsafe#138+).
 
-    Requires finsafe-daemon.yaml with host_capabilities.allowlist_supported: true.
-    Sidecars without that capability fail at admission with a recognizable
-    `policy_router_unavailable_capability` error and are skipped; any other
-    failure (admission rejected for a different reason, cell launch error,
-    whitelisted host not actually reachable) is a real regression and must
-    surface as a test failure, not a silent skip.
+    Requires finsafe-daemon.yaml with host_capabilities.allowlist_supported: true
+    and sidecar ghcr.io/geeksfino/finsafe-saas:v0.9.20 rebuilt after finsafe#138.
     """
     from finsafe_deerflow_provider import FinsafeSandboxProvider
 
@@ -110,13 +118,26 @@ def test_allowlist_live(require_finsafe_daemon):
     except Exception as e:
         msg = str(e)
         provider.shutdown()
-        # Only skip when the sidecar itself lacks the capability; everything
-        # else is a regression we want CI to catch.
-        if "policy_router_unavailable_capability" in msg or "allowlist" in msg.lower():
+        if "policy_router_unavailable_capability" in msg:
             pytest.skip(
                 f"sidecar does not support allowlist (check host_capabilities): {type(e).__name__}: {e}"
             )
         raise
     else:
+        assert "Unsupported proxy scheme" not in out_wl, (
+            "sidecar image predates finsafe#138 loopback relay — "
+            "docker compose pull finsafe-saas (v0.9.20+)"
+        )
+        assert "WL:CURL-FAIL" not in out_wl, f"whitelisted host unreachable: {out_wl}"
+        wl_status = _http_status(out_wl, "WL:")
+        assert wl_status is not None and 200 <= wl_status < 400, (
+            f"expected WL:2xx/3xx for whitelisted host, got: {out_wl!r}"
+        )
+
+        nw_status = _http_status(out_nw, "NW:")
+        assert "NW:CURL-FAIL" in out_nw or nw_status is None or nw_status >= 400, (
+            f"non-whitelisted host should not succeed: {out_nw!r}"
+        )
+
         provider.release(sid)
         provider.shutdown()

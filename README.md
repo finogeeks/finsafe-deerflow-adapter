@@ -15,7 +15,7 @@ implements `FinsafeSandboxProvider` so agent tools run in FinSAFE-isolated cells
 sandbox permissions, Compose wiring, and acceptance tests.
 
 ```bash
-# 1. Install into DeerFlow backend (v0.2.2)
+# 1. Install into DeerFlow backend (v0.2.3)
 cd deer-flow/backend
 # add finsafe extra + git source to pyproject.toml (see INTEGRATION.md)
 uv sync --extra finsafe
@@ -37,7 +37,7 @@ DeerFlow gateway
 
 ## Install (summary)
 
-Provider **v0.2.2** declares `deerflow-harness>=2.1.0` as a plain dependency — the
+Provider **v0.2.3** declares `deerflow-harness>=2.1.0` as a plain dependency — the
 consumer environment chooses the source (workspace in DeerFlow backend, git URL in
 standalone venv). Details: [INTEGRATION.md §3](docs/INTEGRATION.md#3-安装-provider).
 
@@ -48,7 +48,7 @@ finsafe = ["finsafe-deerflow-provider"]
 
 [tool.uv.sources]
 deerflow-harness = { workspace = true }
-finsafe-deerflow-provider = { git = "https://github.com/finogeeks/finsafe-deerflow-provider", tag = "v0.2.2" }
+finsafe-deerflow-provider = { git = "https://github.com/finogeeks/finsafe-deerflow-provider", tag = "v0.2.3" }
 ```
 
 Docker gateway build: `UV_EXTRAS=finsafe`.

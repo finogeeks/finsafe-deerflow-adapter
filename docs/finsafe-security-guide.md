@@ -277,6 +277,8 @@ host_capabilities:
 
 官方 `ghcr.io/geeksfino/finsafe-saas` **默认**未启用 allowlist（`host_capabilities` 缺省为 false），提交 allowlist 会 admission 失败（`policy_router_unavailable_capability`）。在 `docker/finsafe-daemon.yaml` 中设置 `host_capabilities.allowlist_supported: true` 并重启 `finsafe-saas` 后，sidecar 会为每次 execution 启动内嵌 `finsafe-net-proxy`（启动失败则 reject，fail-closed）。
 
+**v0.9.20+（含 [finsafe#138](https://github.com/Geeksfino/finsafe/pull/138)）** 还会在 cell 内注入 loopback relay（`HTTP_PROXY=http://127.0.0.1:60080` → `/run/finsafe-proxy.sock`），使标准 `curl`、Python `requests`、Node `fetch` 可走白名单，无需 `unix://` 代理支持。旧镜像 admission 可能通过但 cell 内 curl 报 `Unsupported proxy scheme` — 请 `docker compose pull finsafe-saas` 刷新 `v0.9.20`。
+
 #### 3.3.3 为何默认 `filesystem` 这样配置
 
 `linux-desktop-isolated` cell 对宿主机 rootfs 做 `--ro-bind / /`，但 **Landlock 仍限制实际可访问路径**。若 `filesystem` 为空：
@@ -566,6 +568,24 @@ docker exec deer-flow-gateway sh -c \
 | 检查项 | 期望 |
 |--------|------|
 | 输出 | `NETWORK-OPEN` |
+
+#### TC-NET-03 白名单出网（`network_mode: allowlist`）
+
+前提：`finsafe-daemon.yaml` 已设 `host_capabilities.allowlist_supported: true`；sidecar 为 **v0.9.20+（含 finsafe#138 loopback relay）**。
+
+在 cell 内执行：
+
+```bash
+curl -sm5 -o /dev/null -w 'WL:%{http_code}' https://1.1.1.1
+curl -sm5 -o /dev/null -w 'NW:%{http_code}' http://8.8.8.8
+```
+
+| 检查项 | 期望 |
+|--------|------|
+| 白名单 host | `WL:2xx` 或 `WL:3xx`（非 `WL:CURL-FAIL`，且无 `Unsupported proxy scheme`） |
+| 非白名单 host | `NW:CURL-FAIL` 或非 2xx/3xx |
+
+自动化：`pytest tests/test_network_allowlist.py -k test_allowlist_live`（需 `FINSAFE_BASE_URL` + `FINSAFE_TOKEN`）。
 
 #### TC-ISO-01 敏感文件只读
 
