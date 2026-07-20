@@ -16,12 +16,12 @@
 #     -f docker-compose.finsafe.yaml \
 #     up -d
 #
-# Pin sidecar image (allowlist needs v0.9.19+ for /run/finsafe-proxy.sock):
-#   FINSAFE_SAAS_IMAGE=ghcr.io/geeksfino/finsafe-saas:v0.9.19
+# Pin sidecar image (allowlist needs v0.9.20+ for /run/finsafe-proxy.sock in GHCR):
+#   FINSAFE_SAAS_IMAGE=ghcr.io/geeksfino/finsafe-saas:v0.9.20
 
 services:
   finsafe-saas:
-    image: ${FINSAFE_SAAS_IMAGE:-ghcr.io/geeksfino/finsafe-saas:v0.9.19}
+    image: ${FINSAFE_SAAS_IMAGE:-ghcr.io/geeksfino/finsafe-saas:v0.9.20}
     platform: ${FINSAFE_SAAS_PLATFORM:-linux/amd64}
     pull_policy: ${FINSAFE_SAAS_PULL_POLICY:-always}
     container_name: deer-flow-finsafe-saas

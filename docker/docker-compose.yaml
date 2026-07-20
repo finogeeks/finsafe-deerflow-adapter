@@ -9,11 +9,11 @@
 # same value in DeerFlow's sandbox.token / FINSAFE_TOKEN.
 #
 # Pin image:
-#   FINSAFE_SAAS_IMAGE=ghcr.io/geeksfino/finsafe-saas:v0.9.18
+#   FINSAFE_SAAS_IMAGE=ghcr.io/geeksfino/finsafe-saas:v0.9.20
 
 services:
   finsafe-saas:
-    image: ${FINSAFE_SAAS_IMAGE:-ghcr.io/geeksfino/finsafe-saas:v0.9.18}
+    image: ${FINSAFE_SAAS_IMAGE:-ghcr.io/geeksfino/finsafe-saas:v0.9.20}
     platform: ${FINSAFE_SAAS_PLATFORM:-linux/amd64}
     pull_policy: ${FINSAFE_SAAS_PULL_POLICY:-always}
     privileged: true
