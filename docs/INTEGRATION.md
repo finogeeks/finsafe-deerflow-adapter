@@ -153,7 +153,7 @@ sandbox:
 |----------------|-----------|---------------------|
 | **`deny`** | 禁止 | **支持（推荐）** |
 | `host` | 共享 sidecar Docker 网络 | 支持（仅开发） |
-| `allowlist` | 白名单 + 内嵌 egress proxy | **需** `host_capabilities.allowlist_supported: true` |
+| `allowlist` | 白名单 + 内嵌 egress proxy | **v0.9.19+**（需 `host_capabilities.allowlist_supported: true`） |
 | `proxy` | 经代理出网 | **不支持**（S1 executor 不支持 `network.mode=proxy`，不要配 `network_proxy_profile`/`proxy_profiles`） |
 
 需要 Agent 访问公网时，优先使用 DeerFlow **`web_search` / `web_fetch` 等工具**（在 gateway 侧执行），而不是放宽 cell 网络。
@@ -357,9 +357,10 @@ deerflow-harness = { workspace = true }
 
 ### `network_mode: allowlist` admission 失败
 
-1. 确认 `docker/finsafe-daemon.yaml` 含 `host_capabilities.allowlist_supported: true`（DeerFlow 示例已包含），修改后重启 `finsafe-saas`。
-2. 若仍失败，检查 sidecar 日志是否有 `host-capabilities allowlist=false`（旧镜像或未挂载配置）。
-3. Admission 通过后，launch 仍可能因 bwrap / privileged 不足失败；容器需 `--privileged` 且含 bubblewrap。
+1. **`policy_router_unavailable_capability`** — `finsafe-daemon.yaml` 未设置 `host_capabilities.allowlist_supported: true`，或 sidecar 版本低于 v0.9.18。
+2. **Cell launch exit 3**（v0.9.18 已知问题，**v0.9.19 已修复**）— 镜像未预创建 `/run/finsafe-proxy.sock`；请升级到 v0.9.19+ 或在 entrypoint 中 `touch /run/finsafe-proxy.sock`。
+3. Admission 通过后 launch 仍可能因 bwrap / privileged 不足失败；容器需 `--privileged` + bubblewrap。检查 sidecar 日志 `host-capabilities allowlist=false`。
+4. 生产默认仍推荐 `network_mode: deny`；allowlist 用于 cell 内需访问特定 HTTPS 端点的场景。
 
 ### Agent bash 报 exit 127
 
